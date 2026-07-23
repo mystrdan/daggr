@@ -92,10 +92,14 @@ export function useWebRTC({
     async function init() {
       try {
         // 1. Open WebSocket to the worker
-        // ARCH_REVIEW: In dev, Vite proxies /r/* to wrangler. In prod, the Worker URL
-        // would be the deployed workers.dev domain or custom domain.
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/r/${roomId}`;
+        // ARCH_REVIEW: In dev, Vite proxies /r/* to wrangler. In prod, set
+        // VITE_WORKER_URL to the deployed Worker URL (e.g., https://daggr-worker.my-subdomain.workers.dev).
+        // If VITE_WORKER_URL is not set, we fall back to the current host (local dev proxy).
+        const workerUrl = import.meta.env.VITE_WORKER_URL as string | undefined;
+        const baseUrl = workerUrl || window.location.origin;
+        const protocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:';
+        const host = baseUrl.replace(/^https?:\/\//, '');
+        const wsUrl = `${protocol}//${host}/r/${roomId}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

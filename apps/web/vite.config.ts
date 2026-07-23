@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 
 // ARCH_REVIEW: In development, Vite proxies WebSocket connections to the
 // wrangler dev server. The worker runs on localhost:8787 by default.
-// Change this if your wrangler dev uses a different port.
+// In production, set VITE_WORKER_URL to the deployed Worker URL.
 const WORKER_DEV_PORT = 8787;
 
 export default defineConfig({

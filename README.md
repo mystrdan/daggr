@@ -67,21 +67,36 @@ Navigate to `http://localhost:5173`. Create a room, copy the link, and open it i
 
 ## Deployment
 
-### Worker
+### 1. Deploy the Worker (required — the app won't work without it)
 
 ```bash
 cd apps/worker
 npx wrangler deploy
 ```
 
-### Frontend
+This deploys to `https://daggr-worker.<your-cloudflare-subdomain>.workers.dev`.  
+**Note the URL — you'll need it for the frontend.**
+
+### 2. Deploy the Frontend
+
+Build with the Worker URL as an environment variable:
 
 ```bash
 cd apps/web
-npx vite build
+VITE_WORKER_URL=https://daggr-worker.<your-subdomain>.workers.dev npx vite build
 ```
 
 Then deploy the `dist/` directory to Cloudflare Pages, Vercel, or any static host.
+
+**Important:** The `VITE_WORKER_URL` environment variable tells the frontend where to find the signaling server. Without it, the frontend will try to connect to its own origin (which only works in local dev with the Vite proxy).
+
+### 3. Verify
+
+1. Open the frontend URL in a browser
+2. Click **Create Room**
+3. Copy the shareable link
+4. Open the link in a different browser or incognito window
+5. Both peers should connect and you can chat
 
 ## Known Limitations & TODOs
 
