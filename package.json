@@ -1,41 +1,20 @@
 {
-  "name": "daggr",
-  "version": "1.0.0",
-  "description": "Doma Sniper Bot - Telegram bot for automated domain token purchases on Doma",
-  "type": "module",
-  "main": "index.js",
+  "name": "daggr-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Daggr — ephemeral peer-to-peer chat",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "build": "tsc",
-    "lint": "echo \"No lint configured\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "dependencies": {
-    "@doma-protocol/orderbook-sdk": "^0.1.8",
-    "axios": "^1.18.1",
-    "better-sqlite3": "^12.11.1",
-    "crypto-js": "^4.2.0",
-    "dotenv": "^17.4.2",
-    "ethers": "^6.17.0",
-    "telegraf": "^4.16.3",
-    "viem": "^2.55.4"
+    "dev:worker": "cd apps/worker && npx wrangler dev",
+    "dev:web": "cd apps/web && npx vite",
+    "dev": "concurrently \"pnpm dev:worker\" \"pnpm dev:web\"",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^26.1.1",
-    "tsx": "^4.23.1",
-    "typescript": "^7.0.2"
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mystrdan/daggr.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/mystrdan/daggr/issues"
-  },
-  "homepage": "https://github.com/mystrdan/daggr#readme"
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

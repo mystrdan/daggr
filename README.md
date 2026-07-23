@@ -1,130 +1,106 @@
-# Doma Sniper Bot
+# Daggr
 
-A multi-user Telegram bot that watches Doma Chain for new domain tokenizations/listings, scores them per-user against configured filters, and executes buys on the user's behalf with a 1% dev fee.
+Ephemeral peer-to-peer chat. No accounts, no database, no trace.
 
-## ⚠️ Security Notice
-
-**THIS IS A CUSTODIAL BOT.** The bot generates and holds encrypted private keys for each user. While keys are encrypted, this means:
-- The bot operator (Vorn) has custody of user funds
-- This is an accepted tradeoff for UX, similar to Unibot/Maestro/BananaGun-style bots
-- See "Security Requirements" below
-
-## Setup
-
-```bash
-# Install dependencies
-npm install
-
-# Copy environment file
-cp .env.example .env
-
-# Edit .env with your values
-# CRITICAL: Never commit .env to git - it contains secrets
-```
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather | Yes |
-| `APP_MASTER_SECRET` | **CRITICAL**: Master secret for key encryption. Losing this = all user funds unrecoverable. Backup securely. | Yes |
-| `FEE_WALLET_ADDRESS` | Address to collect 1% dev fees | Yes |
-| `DOMA_RPC_URL` | Doma testnet RPC endpoint | Yes |
-| `DOMA_API_URL` | Doma API endpoint | Optional (defaults to https://api.doma.xyz) |
-| `DOMA_API_KEY` | Doma API key | Optional |
-| `ADMIN_TELEGRAM_IDS` | Comma-separated Telegram IDs for admin commands | Optional |
-
-## Security Requirements (Phase 1 - Non-Negotiable)
-
-1. **Private Key Encryption**: Private keys are encrypted using AES-256-GCM with a key derived from `APP_MASTER_SECRET + telegram_id` via PBKDF2 (100,000 iterations).
-
-2. **Never Log Keys**: The encrypted private key NEVER appears in log lines, error messages, or Telegram messages. This is enforced by convention and code review.
-
-3. **Memory-Only Decryption**: Keys are decrypted in memory only for the duration of signing, then the decrypted data is overwritten (best-effort in JS).
-
-4. **Withdrawal Confirmation**: All withdrawals require explicit user confirmation reply before execution.
-
-5. **Dry-Run Default**: All users start with dry-run mode ON. Disabling requires explicit confirmation.
-
-6. **Master Secret Backup**: The `APP_MASTER_SECRET` must be backed up securely. Losing it means all user funds become permanently inaccessible.
+Rooms are Cloudflare Durable Objects that self-destruct 30 minutes after creation. After WebRTC signaling completes, the Worker/DO never touches message content — only SDP/ICE relay between exactly 2 peers.
 
 ## Architecture
 
-### Phase 0: Watcher
-- `src/services/watcher.ts`: Direct RPC event subscription via viem `watchEvent`
-- Listens for `SeaportDomainTokenized` events on Doma testnet
-- Falls back to polling API when WS unavailable
-- All events logged to `RawEvent` table before filtering
+```
+daggr/
+├── packages/
+│   ├── protocol/       # Zod message schemas & types
+│   ├── crypto/         # Web Crypto ECDSA P-256 keypair helpers
+│   └── shared/         # Room ID gen, nicknames, ICE config, constants
+├── apps/
+│   ├── worker/         # Cloudflare Worker + Durable Object (RoomDO)
+│   └── web/            # React + Vite + Tailwind frontend
+└── ...
+```
 
-### Phase 1: Custodial Wallet System
-- `/start`: Generates EVM keypair, encrypts private key
-- `/deposit`: Shows deposit address
-- `/withdraw`: Requires confirmation, signs and sends
+### Data Flow
 
-### Phase 2: Per-User Valuation Filter
-- TLD tier scoring (com > net/io > eth/finance > xyz/crypto/defi)
-- Domain length bonus
-- Dictionary word bonus
-- Numbers penalty
+1. **User A** creates a room → generates room ID (`dg-XXXXXXX`), nickname, and ECDSA keypair → opens WebSocket to Worker
+2. **Worker** routes `/r/{roomId}` → `RoomDO` Durable Object
+3. **RoomDO** accepts connection (peer #1), sets 30-min alarm
+4. **User B** joins via shareable link → connects to same RoomDO (peer #2)
+5. **RoomDO** relays SDP offers/answers and ICE candidates between peers (signaling only)
+6. **RTCPeerConnection** established directly between browsers
+7. **Chat** flows over `RTCDataChannel` — Worker/DO never sees message content
+8. **30-minute alarm** fires → all WebSockets closed → DO evicted
 
-### Phase 3: Executor
-- Decrypts key in memory, uses SDK to buy listing
-- Separately transfers 1% fee to fee wallet
-- Logs all attempts with latency
+## Prerequisites
 
-### Phase 4: Telegram Bot
-- Telegraf-based
-- Private per-user notifications
-- Admin-only commands: `/users`, `/feestats`, `/pauseall`
+- **Node.js** >= 20.0.0
+- **pnpm** >= 9.0.0 (`npm install -g pnpm`)
+- **Wrangler** (included as dev dependency)
 
-### Phase 5: Fee Accounting
-- Tracks all collected fees
-- Reports via `/feestats` or periodic DM
+## Local Development
 
-## Usage
+### 1. Install dependencies
 
 ```bash
-# Development (auto-reload)
-npm run dev
-
-# Production
-npm start
+pnpm install
 ```
+
+### 2. Start the worker (in one terminal)
+
+```bash
+cd apps/worker
+npx wrangler dev
+```
+
+The worker runs on `http://localhost:8787` by default.
+
+### 3. Start the frontend (in another terminal)
+
+```bash
+cd apps/web
+npx vite
+```
+
+The frontend runs on `http://localhost:5173` and proxies `/r/*` WebSocket requests to the worker.
+
+### 4. Open in browser
+
+Navigate to `http://localhost:5173`. Create a room, copy the link, and open it in another browser tab/window to start chatting.
+
+## Deployment
+
+### Worker
+
+```bash
+cd apps/worker
+npx wrangler deploy
+```
+
+### Frontend
+
+```bash
+cd apps/web
+npx vite build
+```
+
+Then deploy the `dist/` directory to Cloudflare Pages, Vercel, or any static host.
+
+## Known Limitations & TODOs
+
+- **TURN server not configured**: Currently only uses Google's public STUN server. Before real-user testing, add a TURN server (Cloudflare Calls or a third-party provider) for symmetric NAT traversal. See `packages/shared/src/index.ts` — the `ICE_SERVERS` array is ready for injection.
+- **No E2E encryption**: Phase 1 uses plaintext over RTCDataChannel. The identity keypair (ECDSA P-256) is generated but signatures are not yet verified on messages — this is a Phase 2 concern.
+- **In-memory only**: The Durable Object holds peer state in memory. If the DO is evicted (e.g., due to an unexpected error), the room is lost. The 30-minute alarm ensures eventual cleanup either way.
+- **No reconnection logic**: If a peer disconnects, the room is effectively over. Phase 2 may add a short reconnection window.
+- **Browser support**: Requires WebRTC, Web Crypto, and WebSocket support (all modern browsers).
+
+## ARCH_REVIEW Comments
+
+Throughout the codebase, you'll find `// ARCH_REVIEW:` comments on key architectural decisions. These mark judgment calls worth reviewing before scaling — algorithm choices, encoding schemes, state management patterns, etc. Search the codebase for `ARCH_REVIEW` to find all of them.
 
 ## Commands
 
-### User Commands
-- `/start` - Create wallet (fee disclosure first)
-- `/deposit` - Show deposit address
-- `/balance` - Check balance
-- `/withdraw <address> <amount>` - Withdraw (confirmation required)
-- `/setmax <amount>` - Set max spend per snipe
-- `/dryrun on|off` - Toggle dry-run mode (confirmation to disable)
-- `/config` - Show configuration
-- `/status` - Bot status
-- `/history` - Your snipe attempts
-
-### Admin Commands
-- `/users` - List all users
-- `/feestats` - Fee statistics
-- `/pauseall` - Pause/unpause all sniping
-
-## Database Schema
-
-SQLite database with tables:
-- `Wallet`: telegram_id, address, encrypted_private_key
-- `User`: configuration (max_spend, dry_run, etc.)
-- `RawEvent`: detected domain events
-- `SnipeAttempt`: snipe attempts with scores
-- `Fee`: collected fees
-
-## Testing
-
-Run on **Doma TESTNET only** with test funds until full flow verified:
-1. Deposit test ETH
-2. Create a listing
-3. Verify detection, execution, fee deduction, withdrawal
-
-## License
-
-MIT
+| Command | Description |
+|---------|-------------|
+| `pnpm dev:worker` | Start worker (wrangler dev) |
+| `pnpm dev:web` | Start frontend (vite dev) |
+| `pnpm dev` | Start both concurrently |
+| `pnpm build` | Build all packages |
+| `pnpm lint` | Type-check all packages |
