@@ -73,18 +73,18 @@ async function getMarketData(): Promise<MarketData> {
 function formatPrice(price: number | null, currency: string) {
   if (price === null) return "—";
   try { return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(price); }
-  catch { return \`\${price.toLocaleString("en-US")} \${currency}\`; }
+  catch { return `${price.toLocaleString("en-US")} ${currency}`; }
 }
 function relativeTime(value: string) {
   const seconds = Math.round((new Date(value).getTime() - Date.now()) / 1000);
   const absolute = Math.abs(seconds);
   if (absolute < 60) return "just now";
   const minutes = Math.round(absolute / 60);
-  if (minutes < 60) return \`\${minutes}m \${seconds < 0 ? "ago" : "from now"}\`;
+  if (minutes < 60) return `${minutes}m ${seconds < 0 ? "ago" : "from now"}`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return \`\${hours}h \${seconds < 0 ? "ago" : "from now"}\`;
+  if (hours < 24) return `${hours}h ${seconds < 0 ? "ago" : "from now"}`;
   const days = Math.round(hours / 24);
-  return \`\${days}d \${seconds < 0 ? "ago" : "from now"}\`;
+  return `${days}d ${seconds < 0 ? "ago" : "from now"}`;
 }
 function eventLabel(eventType: string) {
   switch (eventType) {
@@ -95,7 +95,7 @@ function eventLabel(eventType: string) {
 }
 function DomainLink({ name }: { name: string | undefined }) {
   if (!name) return <span>Unknown</span>;
-  return <Link href={\`/domains/\${encodeURIComponent(name)}\`}>{name}</Link>;
+  return <Link href={`/domains/${encodeURIComponent(name)}`}>{name}</Link>;
 }
 
 export default async function Home() {
@@ -150,7 +150,7 @@ export default async function Home() {
           {activity.length === 0 ? <div className="empty compact"><h3>No activity recorded yet.</h3><p>Events will appear here as connected sources change.</p></div> : (
             <div className="feed">{activity.map((event) => <div className="feed-row" key={event.id}>
               <div><strong><DomainLink name={event.auctions?.domains?.name} /></strong><span>{eventLabel(event.event_type)} · {event.auctions?.sources?.name ?? "Unknown source"}</span></div>
-              <div className="feed-value">{event.price !== null ? formatPrice(event.price, event.auctions?.currency ?? "USD") : event.bid_count !== null ? \`\${event.bid_count} bids\` : "—"}<small>{relativeTime(event.occurred_at)}</small></div>
+              <div className="feed-value">{event.price !== null ? formatPrice(event.price, event.auctions?.currency ?? "USD") : event.bid_count !== null ? `${event.bid_count} bids` : "—"}<small>{relativeTime(event.occurred_at)}</small></div>
             </div>)}</div>
           )}
         </div>
@@ -160,7 +160,7 @@ export default async function Home() {
           {pulse.length === 0 ? <div className="pulse-empty"><span className="empty-mark">·</span><p>No domain-industry updates connected yet.</p><small>Pulse is reserved for authorized feeds and curated source links.</small></div> : (
             <div className="pulse-list">{pulse.map((item) => <a className="pulse-item" href={item.url} target="_blank" rel="noreferrer" key={item.id}>
               <span className="pulse-category">{item.category}</span><strong>{item.title}</strong>
-              <small>{item.sources?.name ?? "Source"}{item.published_at ? \` · \${relativeTime(item.published_at)}\` : ""}</small>
+              <small>{item.sources?.name ?? "Source"}{item.published_at ? ` · ${relativeTime(item.published_at)}` : ""}</small>
             </a>)}</div>
           )}
         </aside>
