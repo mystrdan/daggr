@@ -8,7 +8,7 @@ Daggr is a domain market explorer. The data layer uses official APIs, feeds, inv
 |---|---|---|---|---|
 | GoDaddy Auctions | auction / expiry | Official Inventory Protocol; Auctions API for authenticated operations | **Connected** | Live expired auctions, closeouts, market discovery |
 | Dynadot | auction / expiry | Official API | **Connected** | Open expired auctions |
-| Namecheap Market | auction | Official Auctions API | Ready for connector | Active auction discovery |
+| Namecheap Market | auction | Official Auctions API | Connected | Active auction discovery |
 | NameBio | sales intelligence | Official API / datasets | Review licensing before commercial integration | Historical sales/comps |
 | Sedo | marketplace / sales | Official API | Review access/terms | Marketplace discovery |
 | TLD-List | pricing / TLD intelligence | Official API | Secondary | TLD/registrar pricing context |
@@ -52,3 +52,12 @@ Each source adapter normalizes into:
 - sale
 
 Normalized records are stored in Supabase.
+
+
+## Doma Protocol
+
+Doma is also a Daggr source, but it belongs in a separate **on-chain / tokenized domain market** category rather than being treated like a conventional registrar auction feed. Doma provides a standardized bridge between traditional domain registrars and blockchain infrastructure, with tokenized domains represented on Doma Chain. Its marketplace ecosystem exposes listed names and market activity, and Doma provides developer APIs and tooling for domain data.
+
+For Daggr, Doma should initially be treated as a **marketplace / on-chain intelligence source**. We should ingest public market/listing data only after confirming the current API endpoints and permitted use for aggregation. We should not mix Doma records into registrar-auction statistics without marking their source and market type.
+
+Status: **Tracked — connector research next.**
