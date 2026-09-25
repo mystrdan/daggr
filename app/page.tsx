@@ -20,21 +20,23 @@ type MarketUpdate = {
   sources: { name: string } | null;
 };
 type MarketStats = { endingSoon: number; sales: number; domains: number };
+type Source = { id: string; name: string; active: boolean; kind: string };
+type SourceFreshness = { id: string; name: string; active: boolean; latest: string | null };
 type MarketData = {
   auctions: Auction[]; activity: ActivityEvent[]; sales: Sale[]; endingSoon: Auction[];
-  pulse: MarketUpdate[]; stats: MarketStats;
+  pulse: MarketUpdate[]; stats: MarketStats; sources: SourceFreshness[];
 };
 
 async function getMarketData(): Promise<MarketData> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: 0 } };
+  if (!url || !key) return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
 
   const supabase = createClient(url, key);
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult] =
+  const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, sourcesResult, freshnessResult] =
     await Promise.all([
       supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
         .eq("status", "live").order("ends_at", { ascending: true }).limit(20),
@@ -49,6 +51,8 @@ async function getMarketData(): Promise<MarketData> {
       supabase.from("domains").select("id", { count: "exact", head: true }),
       supabase.from("market_updates").select("id,title,url,category,published_at,sources(name)")
         .order("published_at", { ascending: false, nullsFirst: false }).limit(6),
+      supabase.from("sources").select("id,name,active,kind").eq("active", true).order("name"),
+      supabase.from("auctions").select("source_id,updated_at").not("source_id", "is", null).order("updated_at", { ascending: false }).limit(500),
     ]);
 
   return {
@@ -90,7 +94,7 @@ function DomainLink({ name }: { name: string | undefined }) {
 }
 
 export default async function Home() {
-  const { auctions, activity, sales, endingSoon, pulse, stats } = await getMarketData();
+  const { auctions, activity, sales, endingSoon, pulse, stats, sources } = await getMarketData();
   return (
     <main>
       <header className="topbar">
@@ -111,6 +115,19 @@ export default async function Home() {
         <div><strong>{stats.endingSoon || "—"}</strong><span>Ending in 24h</span></div>
         <div><strong>{stats.sales || "—"}</strong><span>Recorded sales</span></div>
         <div><strong>{stats.domains || "—"}</strong><span>Tracked domains</span></div>
+      </section>
+
+      <section className="section source-status">
+        <div className="section-heading"><div><span className="eyebrow">DATA SOURCES</span><h2>Market feeds</h2></div><span className="muted">Freshness</span></div>
+        <div className="source-grid">
+          {sources.length === 0 ? <div className="empty compact"><h3>No active sources configured.</h3><p>Daggr has no connected market feeds yet.</p></div> : sources.map((source) => {
+            const fresh = source.latest ? (Date.now() - new Date(source.latest).getTime()) < 24 * 60 * 60 * 1000 : false;
+            return <div className="source-card" key={source.id}>
+              <div><strong>{source.name}</strong><span>{source.latest ? relativeTime(source.latest) : "No market records yet"}</span></div>
+              <span className={`source-dot ${fresh ? "fresh" : ""}`} title={fresh ? "Updated within 24 hours" : "No update within 24 hours"} />
+            </div>;
+          })}
+        </div>
       </section>
 
       <section className="section" id="auctions">
