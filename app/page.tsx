@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { createClient } from "@supabase/supabase-js";
 import { unzipSync, strFromU8 } from "fflate";
 import Link from "next/link";
