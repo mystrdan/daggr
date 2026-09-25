@@ -103,6 +103,14 @@ export default async function DomainPage({
 
   const events = (eventsResult.data ?? []) as Event[];
   const sales = (salesResult.data ?? []) as Sale[];
+  const tld = domainRow.tld.startsWith(".") ? domainRow.tld : `.${domainRow.tld}`;
+  const keyword = domainRow.name.split(".")[0];
+  const [tldStatsResult, retailStatsResult] = await Promise.all([
+    fetch("https://api.namebio.com/tldstats", { method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body: new URLSearchParams({extension:tld}).toString(), next:{revalidate:86400} }).then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch("https://api.namebio.com/retailstats", { method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body: new URLSearchParams({keyword}).toString(), next:{revalidate:86400} }).then(r=>r.ok?r.json():null).catch(()=>null)
+  ]);
+  const tldStats = tldStatsResult?.data;
+  const retailStats = retailStatsResult?.data;
 
   return (
     <main>
