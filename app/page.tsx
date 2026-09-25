@@ -1,5 +1,37 @@
 import { createClient } from "@supabase/supabase-js";
+import { unzipSync, strFromU8 } from "fflate";
 import Link from "next/link";
+
+
+async function getLiveGoDaddy(): Promise<Auction[]> {
+  try {
+    const response = await fetch("https://origin-auctions-inventory.godaddy.com/recent_listings.json.zip", { cache: "no-store", headers: { "User-Agent": "Daggr/1.0 market explorer" } });
+    if (!response.ok) return [];
+    const archive = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    const jsonFile = Object.keys(archive).find((name) => /\\.json$/i.test(name));
+    if (!jsonFile) return [];
+    const parsed = JSON.parse(strFromU8(archive[jsonFile]));
+    const findRecords = (value: unknown): Record<string, unknown>[] => {
+      if (Array.isArray(value) && value.length && typeof value[0] === "object") return value as Record<string, unknown>[];
+      if (value && typeof value === "object") {
+        for (const key of ["listings","auctions","domains","items","results","auctionListings","records","data","rows","entries"]) {
+          const candidate = (value as Record<string, unknown>)[key];
+          if (Array.isArray(candidate) && candidate.length && typeof candidate[0] === "object") return candidate as Record<string, unknown>[];
+        }
+        for (const child of Object.values(value as Record<string, unknown>)) { const found = findRecords(child); if (found.length) return found; }
+      }
+      return [];
+    };
+    const pick = (row: Record<string, unknown>, names: string[]) => names.map((name) => row[name]).find((v) => v !== undefined && v !== null && v !== "") ?? null;
+    const money = (value: unknown) => { const n = Number(String(value ?? "").replace(/[^0-9.-]/g, "")); return Number.isFinite(n) ? n : null; };
+    return findRecords(parsed).slice(0, 200).map((row, index) => {
+      const domain = String(pick(row, ["domainName","domain","name"]) ?? "").toLowerCase();
+      const link = String(pick(row, ["link"]) ?? "");
+      const listingId = String(pick(row, ["listingId","listingID","id"]) ?? link.match(/-(\\d+)(?:\\?|$)/)?.[1] ?? index);
+      return { id: "godaddy-" + listingId, status: "live", current_price: money(pick(row, ["priceCurrent","currentBid","bidAmountUsd","price"])), currency: "USD", bid_count: Number(pick(row, ["bidsCount","bidCount","numberOfBids","bids"]) ?? 0), ends_at: String(pick(row, ["auctionEndAt","auctionEndTime","endTime","endsAt","auction_end_at"]) ?? "") || null, domains: { name: domain, tld: domain.split(".").pop() ?? "" }, sources: { name: "GoDaddy Auctions" } };
+    }).filter((row) => row.domains.name.includes("."));
+  } catch { return []; }
+}
 
 type Auction = {
   id: string; status: string; current_price: number | null; currency: string;
@@ -37,18 +69,8 @@ async function getMarketData(): Promise<MarketData> {
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   if (!supabase) {
-    try {
-      const host = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "https://daggr.vercel.app";
-      const response = await fetch(host + "/api/market/godaddy", { cache: "no-store" });
-      const payload = response.ok ? await response.json() : null;
-      const liveAuctions = (payload?.listings ?? []).filter((item: { domain?: string }) => item.domain).map((item: { domain:string; listingId?: string|null; currentPrice?: number|null; bidCount?: number; endsAt?: string|null }) => ({
-        id: "godaddy-" + (item.listingId ?? item.domain), status: "live", current_price: item.currentPrice ?? null, currency: "USD", bid_count: item.bidCount ?? 0, ends_at: item.endsAt ?? null,
-        domains: { name: item.domain, tld: item.domain.split(".").pop() ?? "" }, sources: { name: "GoDaddy Auctions" },
-      }));
-      return { auctions: liveAuctions, activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: liveAuctions.length }, sources: [] };
-    } catch {
-      return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
-    }
+    const liveAuctions = await getLiveGoDaddy();
+    return { auctions: liveAuctions, activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: liveAuctions.length }, sources: [] };
   }
 
   const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, sourcesResult, freshnessResult] =
@@ -73,18 +95,7 @@ async function getMarketData(): Promise<MarketData> {
   const dbAuctions = (auctionResult.data ?? []) as unknown as Auction[];
   let liveAuctions = dbAuctions;
 
-  if (liveAuctions.length === 0) {
-    try {
-      const host = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "https://daggr.vercel.app";
-      const liveResponse = await fetch(host + "/api/market/godaddy", { cache: "no-store" });
-      const livePayload = liveResponse.ok ? await liveResponse.json() : null;
-      liveAuctions = (livePayload?.listings ?? []).filter((item: { domain?: string }) => item.domain).map((item: { domain:string; listingId?: string|null; currentPrice?: number|null; bidCount?: number; endsAt?: string|null }) => ({
-        id: "godaddy-" + (item.listingId ?? item.domain), status: "live", current_price: item.currentPrice ?? null, currency: "USD",
-        bid_count: item.bidCount ?? 0, ends_at: item.endsAt ?? null,
-        domains: { name: item.domain, tld: item.domain.split(".").pop() ?? "" }, sources: { name: "GoDaddy Auctions" },
-      }));
-    } catch {}
-  }
+  if (liveAuctions.length === 0) liveAuctions = await getLiveGoDaddy();
 
   return {
     auctions: liveAuctions,
