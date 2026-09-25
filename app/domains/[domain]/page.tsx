@@ -74,20 +74,35 @@ export default async function DomainPage({
     );
   }
 
-  const [auctionsResult, salesResult] = await Promise.all([
-    supabase.from("auctions").select("id,status,current_price,currency,bid_count,starts_at,ends_at,source_url").eq("domain_id", domainRow.id).order("updated_at", { ascending: false }).limit(10),
-    supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at").in("auction_id", (await supabase.from("auctions").select("id").eq("domain_id", domainRow.id))).data?.map((x) => x.id) ?? []),
-    supabase.from("sales").select("id,sale_price,currency,sold_at,source_url").eq("domain_id", domainRow.id).order("sold_at", { ascending: false }).limit(10),
+  const { data: auctionsData } = await supabase
+    .from("auctions")
+    .select("id,status,current_price,currency,bid_count,starts_at,ends_at,source_url")
+    .eq("domain_id", domainRow.id)
+    .order("updated_at", { ascending: false })
+    .limit(10);
+
+  const auctions = (auctionsData ?? []) as Auction[];
+  const auctionIds = auctions.map((a) => a.id);
+
+  const [eventsResult, salesResult] = await Promise.all([
+    auctionIds.length
+      ? supabase
+          .from("auction_events")
+          .select("id,event_type,price,bid_count,occurred_at")
+          .in("auction_id", auctionIds)
+          .order("occurred_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from("sales")
+      .select("id,sale_price,currency,sold_at,source_url")
+      .eq("domain_id", domainRow.id)
+      .order("sold_at", { ascending: false })
+      .limit(10),
   ]);
 
-  const auctions = (auctionsResult.data ?? []) as Auction[];
+  const events = (eventsResult.data ?? []) as Event[];
   const sales = (salesResult.data ?? []) as Sale[];
-  const auctionIds = auctions.map((a) => a.id);
-  let events: Event[] = [];
-  if (auctionIds.length) {
-    const eventResult = await supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at").in("auction_id", auctionIds).order("occurred_at", { ascending: false }).limit(50);
-    events = (eventResult.data ?? []) as Event[];
-  }
 
   return (
     <main>
