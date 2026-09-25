@@ -176,18 +176,18 @@ export default async function Home() {
           <a href="#auctions">Auctions</a>
           <a href="#activity">Activity</a>
         </nav>
-        <button className="search-button">Search domains</button>
+        <Link className="search-button" href="/search">Search domains</Link>
       </header>
 
       <section className="hero">
         <div className="eyebrow">DOMAIN MARKET EXPLORER</div>
         <h1>See what&apos;s happening in the domain market.</h1>
         <p>Live auctions, expired domains, sales and market activity — brought together in one place.</p>
-        <div className="search">
+        <form className="search" action="/search" method="get">
           <span>⌕</span>
-          <input aria-label="Search domains" placeholder="Search a domain, TLD or keyword" />
-          <kbd>⌘ K</kbd>
-        </div>
+          <input name="q" aria-label="Search domains" placeholder="Search a domain, TLD or keyword" />
+          <kbd>↵</kbd>
+        </form>
       </section>
 
       <section className="stats">
