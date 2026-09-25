@@ -1,0 +1,1 @@
+create policy "No public access to ingestion credentials" on public.ingestion_credentials for all to anon, authenticated using (false) with check (false);
