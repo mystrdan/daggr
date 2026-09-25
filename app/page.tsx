@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { unzipSync, strFromU8 } from "fflate";
 import Link from "next/link";
+import LiveAuctions from "./live-auctions";
 
 
 async function getLiveGoDaddy(): Promise<Auction[]> {
@@ -179,11 +180,7 @@ export default async function Home() {
 
       <section className="section" id="auctions">
         <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Live auctions</h2></div><span className="muted">{auctions.length ? auctions.length + " active" : "Waiting for market data"}</span></div>
-        {auctions.length === 0 ? <div className="empty"><div className="empty-mark">◎</div><h3>No live market data yet.</h3><p>Daggr is ready for domain-market data. Connect an auction source to start filling the terminal.</p></div> : (
-          <div className="table-wrap"><table><thead><tr><th>Domain</th><th>Source</th><th>Status</th><th>Bids</th><th>Current</th><th>Ends</th></tr></thead><tbody>
-            {auctions.map((auction) => <tr key={auction.id}><td><strong><DomainLink name={auction.domains?.name} /></strong></td><td>{auction.sources?.name ?? "Unknown"}</td><td><span className="pill live">LIVE</span></td><td>{auction.bid_count}</td><td>{formatPrice(auction.current_price, auction.currency)}</td><td>{auction.ends_at ? new Date(auction.ends_at).toLocaleString() : "—"}</td></tr>)}
-          </tbody></table></div>
-        )}
+        <LiveAuctions />
       </section>
 
       <section className="section pulse-layout" id="activity">
