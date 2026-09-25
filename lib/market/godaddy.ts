@@ -72,7 +72,8 @@ export async function fetchGoDaddyListings(limit = 200, offset = 0) {
     const parsed = JSON.parse(strFromU8(archive[jsonFile]));
     const rows = findRecords(parsed);
 
-    const listings = rows.slice(offset, offset + limit).map((row) => {
+    const selectedRows = limit > 0 ? rows.slice(offset, offset + limit) : rows.slice(offset);
+    const listings = selectedRows.map((row) => {
       const domain = String(pick(row, ["domainName","domain","name"]) ?? "").trim().toLowerCase();
       const link = String(pick(row, ["link"]) ?? "");
       const listingId = String(
