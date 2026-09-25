@@ -57,6 +57,8 @@ export default async function SearchPage({
   const supabase = createClient(url, key);
   let domains: Domain[] = [];
   let auctions: Auction[] = [];
+  let domainTotal = 0;
+  let domainTotalPages = 1;
 
   if (query) {
     const safeQuery = query.replace(/[^a-zA-Z0-9.-]/g, "");
@@ -69,8 +71,8 @@ export default async function SearchPage({
       .range((page - 1) * pageSize, page * pageSize - 1);
 
     domains = (domainResult.data ?? []) as unknown as Domain[];
-    const domainTotal = domainResult.count ?? 0;
-    const domainTotalPages = Math.max(1, Math.ceil(domainTotal / pageSize));
+    domainTotal = domainResult.count ?? 0;
+    domainTotalPages = Math.max(1, Math.ceil(domainTotal / pageSize));
     const domainIds = domains.map((domain) => domain.id);
 
     if (domainIds.length) {
@@ -109,7 +111,7 @@ export default async function SearchPage({
           <section className="section">
             <div className="section-heading">
               <div><span className="eyebrow">DOMAINS</span><h2>Matches for “{query}”</h2></div>
-              <span className="muted">{domainResult.count ?? domains.length} found</span>
+              <span className="muted">{domainTotal || domains.length} found</span>
             </div>
             {domains.length === 0 ? (
               <div className="empty"><h3>No tracked domains matched.</h3><p>Daggr only shows domains present in its connected market data.</p></div>
