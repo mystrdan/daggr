@@ -10,33 +10,70 @@ type Auction = {
   domains: { name: string; tld: string } | null;
 };
 
-async function getAuctions(): Promise<Auction[]> {
+type MarketStats = {
+  endingSoon: number;
+  sales: number;
+  domains: number;
+};
+
+async function getMarketData(): Promise<{ auctions: Auction[]; stats: MarketStats }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return [];
+
+  if (!url || !key) {
+    return { auctions: [], stats: { endingSoon: 0, sales: 0, domains: 0 } };
+  }
 
   const supabase = createClient(url, key);
-  const { data } = await supabase
-    .from("auctions")
-    .select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld)")
-    .eq("status", "live")
-    .order("ends_at", { ascending: true })
-    .limit(20);
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  return (data ?? []) as unknown as Auction[];
+  const [auctionResult, endingResult, salesResult, domainsResult] = await Promise.all([
+    supabase
+      .from("auctions")
+      .select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld)")
+      .eq("status", "live")
+      .order("ends_at", { ascending: true })
+      .limit(20),
+    supabase
+      .from("auctions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "live")
+      .gte("ends_at", now.toISOString())
+      .lte("ends_at", tomorrow.toISOString()),
+    supabase
+      .from("sales")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("domains")
+      .select("id", { count: "exact", head: true }),
+  ]);
+
+  return {
+    auctions: (auctionResult.data ?? []) as unknown as Auction[],
+    stats: {
+      endingSoon: endingResult.count ?? 0,
+      sales: salesResult.count ?? 0,
+      domains: domainsResult.count ?? 0,
+    },
+  };
 }
 
 function formatPrice(price: number | null, currency: string) {
   if (price === null) return "—";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(price);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(price);
+  } catch {
+    return `${price.toLocaleString("en-US")} ${currency}`;
+  }
 }
 
 export default async function Home() {
-  const auctions = await getAuctions();
+  const { auctions, stats } = await getMarketData();
 
   return (
     <main>
@@ -62,9 +99,9 @@ export default async function Home() {
 
       <section className="stats">
         <div><strong>{auctions.length || "—"}</strong><span>Live auctions shown</span></div>
-        <div><strong>{endingSoon || "—"}</strong><span>Ending in 24h</span></div>
-        <div><strong>{sales || "—"}</strong><span>Recorded sales</span></div>
-        <div><strong>—</strong><span>Tracked domains</span></div>
+        <div><strong>{stats.endingSoon || "—"}</strong><span>Ending in 24h</span></div>
+        <div><strong>{stats.sales || "—"}</strong><span>Recorded sales</span></div>
+        <div><strong>{stats.domains || "—"}</strong><span>Tracked domains</span></div>
       </section>
 
       <section className="section" id="auctions">
