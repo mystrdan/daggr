@@ -48,9 +48,10 @@ export type GoDaddyListing = {
   endsAt: string | null;
   startsAt: string | null;
   listingType: string | null;
+  sourceUrl: string | null;
 };
 
-export async function fetchGoDaddyListings(limit = 200) {
+export async function fetchGoDaddyListings(limit = 200, offset = 0) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
 
@@ -71,7 +72,7 @@ export async function fetchGoDaddyListings(limit = 200) {
     const parsed = JSON.parse(strFromU8(archive[jsonFile]));
     const rows = findRecords(parsed);
 
-    const listings = rows.slice(0, limit).map((row) => {
+    const listings = rows.slice(offset, offset + limit).map((row) => {
       const domain = String(pick(row, ["domainName","domain","name"]) ?? "").trim().toLowerCase();
       const link = String(pick(row, ["link"]) ?? "");
       const listingId = String(
@@ -87,6 +88,7 @@ export async function fetchGoDaddyListings(limit = 200) {
         endsAt: String(pick(row, ["auctionEndAt","auctionEndTime","endTime","endsAt","auction_end_at"]) ?? "") || null,
         startsAt: String(pick(row, ["auctionStartAt","auctionStartTime","startTime","startsAt","auction_start_at"]) ?? "") || null,
         listingType: String(pick(row, ["listingType","auctionType","type"]) ?? "") || null,
+        sourceUrl: link || null,
       };
     }).filter((row) => row.domain.includes("."));
 
