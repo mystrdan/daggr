@@ -55,13 +55,29 @@ async function getMarketData(): Promise<MarketData> {
       supabase.from("auctions").select("source_id,updated_at").not("source_id", "is", null).order("updated_at", { ascending: false }).limit(500),
     ]);
 
+  const dbAuctions = (auctionResult.data ?? []) as unknown as Auction[];
+  let liveAuctions = dbAuctions;
+
+  if (liveAuctions.length === 0) {
+    try {
+      const host = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "https://daggr.vercel.app";
+      const liveResponse = await fetch(host + "/api/market/godaddy", { cache: "no-store" });
+      const livePayload = liveResponse.ok ? await liveResponse.json() : null;
+      liveAuctions = (livePayload?.listings ?? []).filter((item: { domain?: string }) => item.domain).map((item: { domain:string; listingId?: string|null; currentPrice?: number|null; bidCount?: number; endsAt?: string|null }) => ({
+        id: "godaddy-" + (item.listingId ?? item.domain), status: "live", current_price: item.currentPrice ?? null, currency: "USD",
+        bid_count: item.bidCount ?? 0, ends_at: item.endsAt ?? null,
+        domains: { name: item.domain, tld: item.domain.split(".").pop() ?? "" }, sources: { name: "GoDaddy Auctions" },
+      }));
+    } catch {}
+  }
+
   return {
-    auctions: (auctionResult.data ?? []) as unknown as Auction[],
+    auctions: liveAuctions,
     endingSoon: (endingResult.data ?? []) as unknown as Auction[],
     activity: (activityResult.data ?? []) as unknown as ActivityEvent[],
     sales: (salesResult.data ?? []) as unknown as Sale[],
     pulse: (pulseResult.data ?? []) as unknown as MarketUpdate[],
-    stats: { endingSoon: endingResult.count ?? 0, sales: salesCountResult.count ?? 0, domains: domainsResult.count ?? 0 },
+    stats: { endingSoon: endingResult.count ?? 0, sales: salesCountResult.count ?? 0, domains: domainsResult.count ?? liveAuctions.length },
     sources: (sourcesResult.data ?? []).map((source) => {
       const latest = ((freshnessResult.data ?? []) as { source_id: string; updated_at: string }[])
         .find((row) => row.source_id === source.id)?.updated_at ?? null;
