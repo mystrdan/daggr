@@ -104,7 +104,7 @@ export default async function Home() {
     <main>
       <header className="topbar">
         <a className="brand" href="/">daggr<span>.</span></a>
-        <nav><a href="#auctions">Auctions</a><a href="#activity">Activity</a><a href="#sales">Sales</a></nav>
+        <nav><a href="#auctions">Auctions</a><a href="#activity">Activity</a><a href="#sales">Sales</a><Link href="/sources">Sources</Link></nav>
         <Link className="search-button" href="/search">Search domains</Link>
       </header>
 
