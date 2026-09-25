@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 
-  const auth = await createSupabaseContext(req, { auth: "secret" });
+  const auth = await createSupabaseContext(req, { auth: "publishable" });
   if (auth.error) return new Response(JSON.stringify({ ok: false, error: auth.error.message }), {
     status: auth.error.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
