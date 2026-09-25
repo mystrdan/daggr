@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import VerisignDropOrder from "../../verisign-drop-order";
 
 type Event = {
   id: number;
@@ -130,6 +131,10 @@ export default async function DomainPage({
         <div><strong>{events.length || "—"}</strong><span>Recorded events</span></div>
         <div><strong>{sales.length || "—"}</strong><span>Recorded sales</span></div>
         <div><strong>.{domainRow.tld}</strong><span>TLD</span></div>
+      </section>
+
+      <section className="section">
+        <div className="context-grid"><VerisignDropOrder domain={domainRow.name} /></div>
       </section>
 
       <section className="section">
