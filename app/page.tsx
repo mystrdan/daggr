@@ -32,11 +32,24 @@ export const dynamic = "force-dynamic";
 async function getMarketData(): Promise<MarketData> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
-
-  const supabase = createClient(url, key);
+  const supabase = url && key ? createClient(url, key) : null;
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  if (!supabase) {
+    try {
+      const host = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "https://daggr.vercel.app";
+      const response = await fetch(host + "/api/market/godaddy", { cache: "no-store" });
+      const payload = response.ok ? await response.json() : null;
+      const liveAuctions = (payload?.listings ?? []).filter((item: { domain?: string }) => item.domain).map((item: { domain:string; listingId?: string|null; currentPrice?: number|null; bidCount?: number; endsAt?: string|null }) => ({
+        id: "godaddy-" + (item.listingId ?? item.domain), status: "live", current_price: item.currentPrice ?? null, currency: "USD", bid_count: item.bidCount ?? 0, ends_at: item.endsAt ?? null,
+        domains: { name: item.domain, tld: item.domain.split(".").pop() ?? "" }, sources: { name: "GoDaddy Auctions" },
+      }));
+      return { auctions: liveAuctions, activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: liveAuctions.length }, sources: [] };
+    } catch {
+      return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
+    }
+  }
 
   const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, sourcesResult, freshnessResult] =
     await Promise.all([
