@@ -59,7 +59,11 @@ async function getMarketData(): Promise<MarketData> {
 
   if (!supabase) {
     const liveAuctions = await getLiveGoDaddy();
-    return { auctions: liveAuctions, activity: [], sales: [], endingSoon: [], pulse: [], stats: { endingSoon: 0, sales: 0, domains: liveAuctions.length }, sources: [] };
+    const endingSoon = liveAuctions.filter((auction) => auction.ends_at && new Date(auction.ends_at) >= now && new Date(auction.ends_at) <= tomorrow).slice(0, 8);
+    const sources: SourceFreshness[] = liveAuctions.length > 0
+      ? [{ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() }]
+      : [];
+    return { auctions: liveAuctions, activity: [], sales: [], endingSoon, pulse: [], stats: { endingSoon: endingSoon.length, sales: 0, domains: liveAuctions.length }, sources };
   }
 
   const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, sourcesResult, freshnessResult] =
