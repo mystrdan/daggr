@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/market/godaddy",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}
