@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";\nimport Link from "next/link";
 
 type Auction = {
   id: string;
@@ -123,7 +123,7 @@ export default async function Home() {
               <tbody>
                 {auctions.map((auction) => (
                   <tr key={auction.id}>
-                    <td><strong>{auction.domains?.name ?? "Unknown"}</strong></td>
+                    <td><strong>{auction.domains?.name ? <Link href={"/domains/" + encodeURIComponent(auction.domains.name)}>{auction.domains.name}</Link> : "Unknown"}</strong></td>
                     <td><span className="pill live">LIVE</span></td>
                     <td>{auction.bid_count}</td>
                     <td>{formatPrice(auction.current_price, auction.currency)}</td>
