@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createSupabaseContext } from "npm:@supabase/server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,13 +75,11 @@ Deno.serve(async (req) => {
     status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
-  const legacyKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const dbKey = secretKeys || legacyKey;
-  if (!supabaseUrl || !dbKey) return new Response(JSON.stringify({ ok: false, error: "Supabase server configuration is incomplete" }), {
-    status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+  const auth = await createSupabaseContext(req, { auth: "secret" });
+  if (auth.error) return new Response(JSON.stringify({ ok: false, error: auth.error.message }), {
+    status: auth.error.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
+  const supabase = auth.data.supabaseAdmin;
 
   let body: { file?: string };
   try { body = await req.json(); } catch { body = {}; }
@@ -108,10 +106,6 @@ Deno.serve(async (req) => {
 
   const csv = await upstream.text();
   const rows = parseCsv(csv);
-
-  const supabase = createClient(supabaseUrl, dbKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
 
   const { data: source, error: sourceError } = await supabase
     .from("sources").select("id").eq("name", "NameJet").maybeSingle();
