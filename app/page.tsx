@@ -20,8 +20,8 @@ type MarketUpdate = {
   sources: { name: string } | null;
 };
 type MarketStats = { endingSoon: number; sales: number; domains: number };
-type Source = { id: string; name: string; active: boolean; kind: string };
-type SourceFreshness = { id: string; name: string; active: boolean; latest: string | null };
+type Source = { id: string; name: string; active: boolean; kind: string; access_status: string; credential_env: string[]; feed_types: string[] };
+type SourceFreshness = { id: string; name: string; active: boolean; access_status: string; credential_env: string[]; feed_types: string[]; latest: string | null };
 type MarketData = {
   auctions: Auction[]; activity: ActivityEvent[]; sales: Sale[]; endingSoon: Auction[];
   pulse: MarketUpdate[]; stats: MarketStats; sources: SourceFreshness[];
@@ -51,7 +51,7 @@ async function getMarketData(): Promise<MarketData> {
       supabase.from("domains").select("id", { count: "exact", head: true }),
       supabase.from("market_updates").select("id,title,url,category,published_at,sources(name)")
         .order("published_at", { ascending: false, nullsFirst: false }).limit(6),
-      supabase.from("sources").select("id,name,active,kind").eq("active", true).order("name"),
+      supabase.from("sources").select("id,name,active,kind,access_status,credential_env,feed_types").eq("active", true).order("name"),
       supabase.from("auctions").select("source_id,updated_at").not("source_id", "is", null).order("updated_at", { ascending: false }).limit(500),
     ]);
 
@@ -118,7 +118,7 @@ export default async function Home() {
       </section>
 
       <section className="section source-status">
-        <div className="section-heading"><div><span className="eyebrow">DATA SOURCES</span><h2>Market feeds</h2></div><span className="muted">Freshness</span></div>
+        <div className="section-heading"><div><span className="eyebrow">DATA SOURCES</span><h2>Market feeds</h2></div><span className="muted">Connector status</span></div>
         <div className="source-grid">
           {sources.length === 0 ? <div className="empty compact"><h3>No active sources configured.</h3><p>Daggr has no connected market feeds yet.</p></div> : sources.map((source) => {
             const fresh = source.latest ? (Date.now() - new Date(source.latest).getTime()) < 24 * 60 * 60 * 1000 : false;
