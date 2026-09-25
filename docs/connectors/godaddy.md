@@ -20,7 +20,7 @@ Supported archives include:
 - `auctions_ending_today.json.zip`
 - `auctions_ending_tomorrow.json.zip`
 
-The function accepts a `max_rows` limit so the first ingestion can be bounded. It stores normalized domain/auction records in Supabase and keeps the provider payload in `metadata` for audit/debugging.
+The function accepts a `max_rows` limit so ingestion can be bounded. It downloads the official ZIP, unwraps the JSON payload, normalizes provider field variants, then upserts domains and auctions in batches. The raw provider listing is retained in `metadata` for audit/debugging. Auction changes are captured by Daggr's database trigger as `auction_events`.
 
 ## Important distinction
 
@@ -32,5 +32,7 @@ GoDaddy's authenticated Auctions API currently requires a Classic Developer Key;
 
 - Inventory: https://inventory.auctions.godaddy.com/
 - Auctions developer documentation: https://developer.godaddy.com/en/docs/api-users/auctions
+
+On 2026-09-25, the official inventory index listed the supported JSON archives above, including `all_expiring_auctions.json.zip`, `all_biddable_auctions.json.zip`, `closeout_listings.json.zip`, `auctions_ending_today.json.zip`, and `auctions_ending_tomorrow.json.zip`. The connector remains read-only and does not assume that a downloaded inventory file represents every GoDaddy listing.
 
 Last verified: 2026-09-25.
