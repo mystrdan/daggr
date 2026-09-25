@@ -97,8 +97,19 @@ Deno.serve(async (req) => {
     status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 
+  const browserHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  };
+  const landing = await fetch("https://www.namejet.com/download.action?format=csv", { headers: browserHeaders }).catch(() => null);
+  const cookie = landing?.headers.get("set-cookie") ?? "";
   const upstream = await fetch("https://www.namejet.com/file_dl.sn?file=" + encodeURIComponent(file), {
-    headers: { "User-Agent": "Daggr/1.0 market-data-ingestion" }
+    headers: {
+      ...browserHeaders,
+      "Accept": "text/csv,text/plain,application/octet-stream,*/*;q=0.8",
+      "Referer": "https://www.namejet.com/download.action?format=csv",
+      ...(cookie ? { "Cookie": cookie } : {}),
+    }
   });
   if (!upstream.ok) return new Response(JSON.stringify({
     ok: false, source: "NameJet", file, error: "Upstream HTTP " + upstream.status
