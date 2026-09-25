@@ -63,7 +63,7 @@ export default async function SearchPage({
     const pattern = `%${safeQuery}%`;
     const domainResult = await supabase
       .from("domains")
-      .select("id,name,tld,first_seen_at,last_seen_at")
+      .select("id,name,tld,first_seen_at,last_seen_at", { count: "exact" })
       .or(`name.ilike.${pattern},tld.ilike.${pattern},normalized_name.ilike.${pattern}`)
        .order("last_seen_at", { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
