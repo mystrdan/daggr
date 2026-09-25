@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const offset = (page - 1) * limit;
 
   try {
-    const { listings, observedAt, rawCount } = await fetchGoDaddyListings(Math.max(limit * page, 200), 0);
+    const { listings, observedAt, rawCount } = await fetchGoDaddyListings(0, 0);
     const sorted = [...listings].sort((a, b) => {
       if (sort === "ending") return (new Date(a.endsAt ?? "9999-12-31").getTime() - new Date(b.endsAt ?? "9999-12-31").getTime());
       if (sort === "bids") return b.bidCount - a.bidCount;
