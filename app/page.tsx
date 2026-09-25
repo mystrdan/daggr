@@ -22,7 +22,9 @@ type MarketUpdate = {
 type MarketStats = { endingSoon: number; sales: number; domains: number };
 type Source = { id: string; name: string; active: boolean; kind: string; access_status: string; credential_env: string[]; feed_types: string[] };
 type SourceFreshness = { id: string; name: string; active: boolean; access_status: string; credential_env: string[]; feed_types: string[]; latest: string | null };
-type MarketData = {
+export const dynamic = "force-dynamic";
+
+ type MarketData = {
   auctions: Auction[]; activity: ActivityEvent[]; sales: Sale[]; endingSoon: Auction[];
   pulse: MarketUpdate[]; stats: MarketStats; sources: SourceFreshness[];
 };
