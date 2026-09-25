@@ -57,25 +57,28 @@ export default async function SearchPage({
   let auctions: Auction[] = [];
 
   if (query) {
-    const pattern = `%${query.replace(/[%_]/g, "")}%`;
-    const [domainResult, auctionResult] = await Promise.all([
-      supabase
-        .from("domains")
-        .select("id,name,tld,first_seen_at,last_seen_at")
-        .or(`name.ilike.${pattern},tld.ilike.${pattern},normalized_name.ilike.${pattern}`)
-        .order("last_seen_at", { ascending: false })
-        .limit(30),
-      supabase
+    const safeQuery = query.replace(/[^a-zA-Z0-9.-]/g, "");
+    const pattern = `%${safeQuery}%`;
+    const domainResult = await supabase
+      .from("domains")
+      .select("id,name,tld,first_seen_at,last_seen_at")
+      .or(`name.ilike.${pattern},tld.ilike.${pattern},normalized_name.ilike.${pattern}`)
+      .order("last_seen_at", { ascending: false })
+      .limit(30);
+
+    domains = (domainResult.data ?? []) as unknown as Domain[];
+    const domainIds = domains.map((domain) => domain.id);
+
+    if (domainIds.length) {
+      const auctionResult = await supabase
         .from("auctions")
         .select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
         .eq("status", "live")
-        .or(`external_id.ilike.${pattern}`)
+        .in("domain_id", domainIds)
         .order("ends_at", { ascending: true })
-        .limit(20),
-    ]);
-
-    domains = (domainResult.data ?? []) as unknown as Domain[];
-    auctions = (auctionResult.data ?? []) as unknown as Auction[];
+        .limit(20);
+      auctions = (auctionResult.data ?? []) as unknown as Auction[];
+    }
   }
 
   return (
