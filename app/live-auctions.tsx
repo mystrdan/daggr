@@ -23,13 +23,14 @@ export default function LiveAuctions() {
   const [total, setTotal] = useState(0);
   const [sort, setSort] = useState<Sort>("newest");
   const [loading, setLoading] = useState(true);
+  const MIN_PRICE = 10;
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/market/godaddy?page=${page}&limit=50&sort=${sort}`, { cache: "no-store" });
+        const response = await fetch(`/api/market/godaddy?page=${page}&limit=50&sort=${sort}&minPrice=${MIN_PRICE}`, { cache: "no-store" });
         const payload = await response.json();
         if (!response.ok || !payload.ok) throw new Error(payload.error || "Market feed unavailable");
         if (active) {
@@ -74,7 +75,7 @@ export default function LiveAuctions() {
           <button key={value} className={sort === value ? "active" : ""} onClick={() => { setSort(value); setPage(1); }}>{label}</button>
         ))}
       </div>
-      <span className="market-total">{total ? `${total.toLocaleString()} listings` : "Live feed"}</span>
+      <span className="market-total">{total ? `${total.toLocaleString()} listings ≥ ${MIN_PRICE}` : `Live feed · minimum ${MIN_PRICE}`}</span>
     </div>
 
     {loading && !listings.length ? <div className="empty compact"><h3>Loading live market data…</h3><p>Fetching the latest auction inventory.</p></div> : !listings.length ? <div className="empty compact"><h3>No listings on this page.</h3><p>Try another sort or page.</p></div> : (
@@ -87,7 +88,7 @@ export default function LiveAuctions() {
           <span>Page {page.toLocaleString()} of {totalPages.toLocaleString()}</span>
           <button disabled={page >= totalPages || loading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>Next →</button>
         </div>
-        <p className="muted" style={{marginTop:"12px"}}>Live feed · {total.toLocaleString()} available listings · observed {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "now"} · refreshes every 5 minutes</p>
+        <p className="muted" style={{marginTop:"12px"}}>Live feed · minimum $10 · {total.toLocaleString()} qualifying listings · observed {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "now"} · refreshes every 5 minutes</p>
       </>
     )}
   </div>;
