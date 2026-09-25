@@ -92,7 +92,7 @@ async function getMarketData(): Promise<MarketData> {
   const endingSoon = ((endingResult.data ?? []) as unknown as Auction[]).length
     ? ((endingResult.data ?? []) as unknown as Auction[])
     : fallbackEndingSoon;
-  const sources = (sourcesResult.data ?? []) as SourceFreshness[];
+  const sources = (sourcesResult.data ?? []) as unknown as SourceFreshness[];
   if (sources.length === 0 && liveAuctions.length > 0) {
     sources.push({ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() });
   }
