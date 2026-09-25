@@ -26,6 +26,11 @@ function pick(row: Record<string, unknown>, names: string[]): unknown {
 }
 
 function money(value: unknown): number | null {
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^0-9.-]/g, "");
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return n > 100000 ? n / 1000000 : n;
@@ -56,12 +61,12 @@ export async function GET() {
       const domain = String(pick(row, ["domainName","domain","name"]) ?? "").toLowerCase();
       return {
         domain,
-        listingId: pick(row, ["listingId","listingID","id"]),
+        listingId: pick(row, ["listingId","listingID","id"]) ?? (String(pick(row, ["link"]) ?? "").match(/-(\\d+)(?:\\?|$)/)?.[1] ?? null),
         currentPrice: money(pick(row, ["priceCurrent","currentBid","bidAmountUsd","price"])),
-        bidCount: Number(pick(row, ["bidsCount","bidCount","bids"]) ?? 0),
-        endsAt: pick(row, ["auctionEndAt","endTime","endsAt","auction_end_at"]),
-        startsAt: pick(row, ["auctionStartAt","startTime","startsAt","auction_start_at"]),
-        listingType: pick(row, ["listingType","type"]),
+        bidCount: Number(pick(row, ["bidsCount","bidCount","numberOfBids","bids"]) ?? 0),
+        endsAt: pick(row, ["auctionEndAt","auctionEndTime","endTime","endsAt","auction_end_at"]),
+        startsAt: pick(row, ["auctionStartAt","auctionStartTime","startTime","startsAt","auction_start_at"]),
+        listingType: pick(row, ["listingType","auctionType","type"]),
       };
     }).filter((row) => row.domain.includes("."));
 
