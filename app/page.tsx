@@ -62,6 +62,11 @@ async function getMarketData(): Promise<MarketData> {
     sales: (salesResult.data ?? []) as unknown as Sale[],
     pulse: (pulseResult.data ?? []) as unknown as MarketUpdate[],
     stats: { endingSoon: endingResult.count ?? 0, sales: salesCountResult.count ?? 0, domains: domainsResult.count ?? 0 },
+    sources: (sourcesResult.data ?? []).map((source) => {
+      const latest = ((freshnessResult.data ?? []) as { source_id: string; updated_at: string }[])
+        .find((row) => row.source_id === source.id)?.updated_at ?? null;
+      return { ...source, latest };
+    }) as SourceFreshness[],
   };
 }
 
