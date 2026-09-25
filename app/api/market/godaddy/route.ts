@@ -1,82 +1,36 @@
-import { unzipSync, strFromU8 } from "fflate";
-
-const INVENTORY_URL = "https://origin-auctions-inventory.godaddy.com/recent_listings.json.zip";
-
-function findRecords(value: unknown): Record<string, unknown>[] {
-  if (Array.isArray(value) && value.length && typeof value[0] === "object") return value as Record<string, unknown>[];
-  if (value && typeof value === "object") {
-    for (const key of ["listings","auctions","domains","items","results","auctionListings","records","data","rows","entries"]) {
-      const candidate = (value as Record<string, unknown>)[key];
-      if (Array.isArray(candidate) && candidate.length && typeof candidate[0] === "object") return candidate as Record<string, unknown>[];
-    }
-    for (const child of Object.values(value as Record<string, unknown>)) {
-      const found = findRecords(child);
-      if (found.length) return found;
-    }
-  }
-  return [];
-}
-
-function pick(row: Record<string, unknown>, names: string[]): unknown {
-  for (const name of names) {
-    const v = row[name];
-    if (v !== undefined && v !== null && v !== "") return v;
-  }
-  return null;
-}
-
-function money(value: unknown): number | null {
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[^0-9.-]/g, "");
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : null;
-  }
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return n > 100000 ? n / 1000000 : n;
-}
+import { fetchGoDaddyListings } from "../../../../lib/market/godaddy";
 
 export const revalidate = 300;
 
-export async function GET() {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const page = Math.max(1, Number(url.searchParams.get("page") ?? "1") || 1);
+  const limit = Math.min(100, Math.max(10, Number(url.searchParams.get("limit") ?? "50") || 50));
+  const sort = url.searchParams.get("sort") ?? "newest";
+  const offset = (page - 1) * limit;
+
   try {
-    const response = await fetch(INVENTORY_URL, {
-      cache: "no-store",
-      headers: { "User-Agent": "Daggr/1.0 market explorer" },
-      signal: controller.signal,
+    const { listings, observedAt, rawCount } = await fetchGoDaddyListings(Math.max(limit * page, 200), 0);
+    const sorted = [...listings].sort((a, b) => {
+      if (sort === "ending") return (new Date(a.endsAt ?? "9999-12-31").getTime() - new Date(b.endsAt ?? "9999-12-31").getTime());
+      if (sort === "bids") return b.bidCount - a.bidCount;
+      if (sort === "price-low") return (a.currentPrice ?? Number.POSITIVE_INFINITY) - (b.currentPrice ?? Number.POSITIVE_INFINITY);
+      if (sort === "price-high") return (b.currentPrice ?? -1) - (a.currentPrice ?? -1);
+      return 0;
     });
-    if (!response.ok) return Response.json({ ok: false, error: `GoDaddy inventory HTTP ${response.status}` }, { status: 502 });
-
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    const archive = unzipSync(bytes);
-    const jsonFile = Object.keys(archive).find((name) => /\.json$/i.test(name));
-    if (!jsonFile) return Response.json({ ok: false, error: "No JSON file in GoDaddy archive" }, { status: 502 });
-
-    const parsed = JSON.parse(strFromU8(archive[jsonFile]));
-    const rows = findRecords(parsed);
-
-    const listings = rows.slice(0, 200).map((row) => {
-      const domain = String(pick(row, ["domainName","domain","name"]) ?? "").toLowerCase();
-      return {
-        domain,
-        listingId: pick(row, ["listingId","listingID","id"]) ?? (String(pick(row, ["link"]) ?? "").match(/-(\\d+)(?:\\?|$)/)?.[1] ?? null),
-        currentPrice: money(pick(row, ["priceCurrent","currentBid","bidAmountUsd","price"])),
-        bidCount: Number(pick(row, ["bidsCount","bidCount","numberOfBids","bids"]) ?? 0),
-        endsAt: pick(row, ["auctionEndAt","auctionEndTime","endTime","endsAt","auction_end_at"]),
-        startsAt: pick(row, ["auctionStartAt","auctionStartTime","startTime","startsAt","auction_start_at"]),
-        listingType: pick(row, ["listingType","auctionType","type"]),
-      };
-    }).filter((row) => row.domain.includes("."));
+    const pageListings = sorted.slice(offset, offset + limit);
 
     return Response.json({
       ok: true,
       source: "GoDaddy Auctions",
-      observedAt: new Date().toISOString(),
-      count: listings.length,
-      sample: rows[0] ?? null,
-      listings,
+      observedAt,
+      page,
+      limit,
+      total: rawCount,
+      totalPages: Math.max(1, Math.ceil(rawCount / limit)),
+      sort,
+      count: pageListings.length,
+      listings: pageListings,
     });
   } catch (error) {
     return Response.json({
@@ -84,7 +38,5 @@ export async function GET() {
       error: "GoDaddy inventory could not be read",
       detail: error instanceof Error ? error.message : "unknown error",
     }, { status: 502 });
-  } finally {
-    clearTimeout(timeout);
   }
 }
