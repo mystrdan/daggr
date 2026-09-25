@@ -61,9 +61,9 @@ export default async function Home() {
       </section>
 
       <section className="stats">
-        <div><strong>—</strong><span>Live auctions</span></div>
-        <div><strong>—</strong><span>Ending soon</span></div>
-        <div><strong>—</strong><span>Recent sales</span></div>
+        <div><strong>{auctions.length || "—"}</strong><span>Live auctions shown</span></div>
+        <div><strong>{endingSoon || "—"}</strong><span>Ending in 24h</span></div>
+        <div><strong>{sales || "—"}</strong><span>Recorded sales</span></div>
         <div><strong>—</strong><span>Tracked domains</span></div>
       </section>
 
