@@ -36,10 +36,12 @@ function formatPrice(value: number | null, currency: string) {
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const query = (params.q ?? "").trim();
+  const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const pageSize = 30;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -63,10 +65,12 @@ export default async function SearchPage({
       .from("domains")
       .select("id,name,tld,first_seen_at,last_seen_at")
       .or(`name.ilike.${pattern},tld.ilike.${pattern},normalized_name.ilike.${pattern}`)
-      .order("last_seen_at", { ascending: false })
-      .limit(30);
+       .order("last_seen_at", { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     domains = (domainResult.data ?? []) as unknown as Domain[];
+    const domainTotal = domainResult.count ?? 0;
+    const domainTotalPages = Math.max(1, Math.ceil(domainTotal / pageSize));
     const domainIds = domains.map((domain) => domain.id);
 
     if (domainIds.length) {
@@ -105,7 +109,7 @@ export default async function SearchPage({
           <section className="section">
             <div className="section-heading">
               <div><span className="eyebrow">DOMAINS</span><h2>Matches for “{query}”</h2></div>
-              <span className="muted">{domains.length} found</span>
+              <span className="muted">{domainResult.count ?? domains.length} found</span>
             </div>
             {domains.length === 0 ? (
               <div className="empty"><h3>No tracked domains matched.</h3><p>Daggr only shows domains present in its connected market data.</p></div>
