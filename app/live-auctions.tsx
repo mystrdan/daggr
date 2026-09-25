@@ -44,7 +44,7 @@ export default function LiveAuctions() {
 
   return <div>
     <div className="table-wrap"><table><thead><tr><th>Domain</th><th>Source</th><th>Type</th><th>Bids</th><th>Current</th><th>Ends</th></tr></thead><tbody>
-      {listings.map((item) => <tr key={item.listingId ?? item.domain}><td><strong><a href={`/domains/${encodeURIComponent(item.domain)}`}>{item.domain}</a></strong></td><td>GoDaddy Auctions</td><td>{item.listingType ?? "—"}</td><td>{item.bidCount}</td><td>{money(item.currentPrice)}</td><td>{item.endsAt ? new Date(item.endsAt).toLocaleString() : "—"}</td></tr>)}
+      {listings.map((item) => <tr key={item.listingId ?? item.domain}><td><strong>{item.domain}</strong></td><td>GoDaddy Auctions</td><td>{item.listingType ?? "—"}</td><td>{item.bidCount}</td><td>{money(item.currentPrice)}</td><td>{item.endsAt ? new Date(item.endsAt).toLocaleString() : "—"}</td></tr>)}
     </tbody></table></div>
     <p className="muted" style={{marginTop:"12px"}}>Live feed · observed {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "now"} · refreshes every 5 minutes</p>
   </div>;
