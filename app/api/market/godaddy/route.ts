@@ -70,6 +70,7 @@ export async function GET() {
       source: "GoDaddy Auctions",
       observedAt: new Date().toISOString(),
       count: listings.length,
+      sample: rows[0] ?? null,
       listings,
     });
   } catch (error) {
