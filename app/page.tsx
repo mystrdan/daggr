@@ -1,37 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
-import { unzipSync, strFromU8 } from "fflate";
+import { fetchGoDaddyListings } from "../lib/market/godaddy";
 import Link from "next/link";
 import LiveAuctions from "./live-auctions";
 
 
 async function getLiveGoDaddy(): Promise<Auction[]> {
   try {
-    const response = await fetch("https://origin-auctions-inventory.godaddy.com/recent_listings.json.zip", { cache: "no-store", headers: { "User-Agent": "Daggr/1.0 market explorer" } });
-    if (!response.ok) return [];
-    const archive = unzipSync(new Uint8Array(await response.arrayBuffer()));
-    const jsonFile = Object.keys(archive).find((name) => /\\.json$/i.test(name));
-    if (!jsonFile) return [];
-    const parsed = JSON.parse(strFromU8(archive[jsonFile]));
-    const findRecords = (value: unknown): Record<string, unknown>[] => {
-      if (Array.isArray(value) && value.length && typeof value[0] === "object") return value as Record<string, unknown>[];
-      if (value && typeof value === "object") {
-        for (const key of ["listings","auctions","domains","items","results","auctionListings","records","data","rows","entries"]) {
-          const candidate = (value as Record<string, unknown>)[key];
-          if (Array.isArray(candidate) && candidate.length && typeof candidate[0] === "object") return candidate as Record<string, unknown>[];
-        }
-        for (const child of Object.values(value as Record<string, unknown>)) { const found = findRecords(child); if (found.length) return found; }
-      }
-      return [];
-    };
-    const pick = (row: Record<string, unknown>, names: string[]) => names.map((name) => row[name]).find((v) => v !== undefined && v !== null && v !== "") ?? null;
-    const money = (value: unknown) => { const n = Number(String(value ?? "").replace(/[^0-9.-]/g, "")); return Number.isFinite(n) ? n : null; };
-    return findRecords(parsed).slice(0, 200).map((row, index) => {
-      const domain = String(pick(row, ["domainName","domain","name"]) ?? "").toLowerCase();
-      const link = String(pick(row, ["link"]) ?? "");
-      const listingId = String(pick(row, ["listingId","listingID","id"]) ?? link.match(/-(\\d+)(?:\\?|$)/)?.[1] ?? index);
-      return { id: "godaddy-" + listingId, status: "live", current_price: money(pick(row, ["priceCurrent","currentBid","bidAmountUsd","price"])), currency: "USD", bid_count: Number(pick(row, ["bidsCount","bidCount","numberOfBids","bids"]) ?? 0), ends_at: String(pick(row, ["auctionEndAt","auctionEndTime","endTime","endsAt","auction_end_at"]) ?? "") || null, domains: { name: domain, tld: domain.split(".").pop() ?? "" }, sources: { name: "GoDaddy Auctions" } };
-    }).filter((row) => row.domains.name.includes("."));
-  } catch { return []; }
+    const { listings } = await fetchGoDaddyListings(200);
+    return listings.map((listing) => ({
+      id: "godaddy-" + (listing.listingId ?? listing.domain + "-" + (listing.endsAt ?? "")),
+      status: "live",
+      current_price: listing.currentPrice,
+      currency: "USD",
+      bid_count: Number.isFinite(listing.bidCount) ? Math.max(0, listing.bidCount) : 0,
+      ends_at: listing.endsAt,
+      domains: { name: listing.domain, tld: listing.domain.split(".").pop() ?? "" },
+      sources: { name: "GoDaddy Auctions" },
+    }));
+  } catch {
+    return [];
+  }
 }
 
 type Auction = {
@@ -98,9 +86,20 @@ async function getMarketData(): Promise<MarketData> {
 
   if (liveAuctions.length === 0) liveAuctions = await getLiveGoDaddy();
 
+  const fallbackEndingSoon = liveAuctions
+    .filter((auction) => auction.ends_at && new Date(auction.ends_at) >= now && new Date(auction.ends_at) <= tomorrow)
+    .slice(0, 8);
+  const endingSoon = ((endingResult.data ?? []) as unknown as Auction[]).length
+    ? ((endingResult.data ?? []) as unknown as Auction[])
+    : fallbackEndingSoon;
+  const sources = (sourcesResult.data ?? []) as SourceFreshness[];
+  if (sources.length === 0 && liveAuctions.length > 0) {
+    sources.push({ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() });
+  }
+
   return {
     auctions: liveAuctions,
-    endingSoon: (endingResult.data ?? []) as unknown as Auction[],
+    endingSoon,
     activity: (activityResult.data ?? []) as unknown as ActivityEvent[],
     sales: (salesResult.data ?? []) as unknown as Sale[],
     pulse: (pulseResult.data ?? []) as unknown as MarketUpdate[],
