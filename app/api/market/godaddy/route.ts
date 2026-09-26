@@ -8,11 +8,12 @@ export async function GET(request: Request) {
   const limit = Math.min(100, Math.max(10, Number(url.searchParams.get("limit") ?? "50") || 50));
   const sort = url.searchParams.get("sort") ?? "newest";
   const minPrice = Math.max(10, Number(url.searchParams.get("minPrice") ?? "10") || 10);
+  const minBids = Math.max(0, Number(url.searchParams.get("minBids") ?? "0") || 0);
   const offset = (page - 1) * limit;
 
   try {
     const { listings, observedAt, rawCount } = await fetchGoDaddyListings(0, 0);
-    const filtered = listings.filter((listing) => listing.currentPrice !== null && listing.currentPrice >= minPrice);
+    const filtered = listings.filter((listing) => listing.currentPrice !== null && listing.currentPrice >= minPrice && listing.bidCount >= minBids);
     const sorted = [...filtered].sort((a, b) => {
       if (sort === "ending") return (new Date(a.endsAt ?? "9999-12-31").getTime() - new Date(b.endsAt ?? "9999-12-31").getTime());
       if (sort === "bids") return b.bidCount - a.bidCount;
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
       total: filtered.length,
       totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
       minPrice,
+      minBids,
       sort,
       count: pageListings.length,
       listings: pageListings,
