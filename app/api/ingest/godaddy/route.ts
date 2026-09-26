@@ -103,7 +103,7 @@ export async function GET(request: Request) {
         current_price: listing.currentPrice,
         currency: "USD",
         bid_count: Number.isFinite(listing.bidCount) ? Math.max(0, listing.bidCount) : 0,
-        source_url: `https://www.godaddy.com/domain-auctions/${listing.domain.replace(/\./g, "-")}-${listing.listingId}`,
+        source_url: listing.sourceUrl ?? `https://www.godaddy.com/domain-auctions/${listing.domain.replace(/\./g, "-")}-${listing.listingId}`,
         metadata: {
           listing_type: listing.listingType,
           observed_at: observedAt,
