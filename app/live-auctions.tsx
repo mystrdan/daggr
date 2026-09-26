@@ -23,6 +23,7 @@ export default function LiveAuctions() {
   const [total, setTotal] = useState(0);
   const [sort, setSort] = useState<Sort>("newest");
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const MIN_PRICE = 10;
 
   useEffect(() => {
@@ -48,12 +49,11 @@ export default function LiveAuctions() {
     };
     load();
     return () => { active = false; };
-  }, [page, sort]);
+  }, [page, sort, refreshKey]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setPage(1);
-      setSort((current) => current);
+      setRefreshKey((value) => value + 1);
     }, 5 * 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
