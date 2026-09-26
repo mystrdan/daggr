@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { fetchGoDaddyListings } from "../lib/market/godaddy";
 import Link from "next/link";
 import LiveAuctions from "./live-auctions";
+import { getDomainNews } from "../lib/news";
 
 
 async function getLiveGoDaddy(): Promise<Auction[]> {
@@ -48,7 +49,7 @@ export const dynamic = "force-dynamic";
 
  type MarketData = {
   auctions: Auction[]; activity: ActivityEvent[]; sales: Sale[]; endingSoon: Auction[];
-  pulse: MarketUpdate[]; stats: MarketStats; sources: SourceFreshness[];
+  pulse: MarketUpdate[]; news: Awaited<ReturnType<typeof getDomainNews>>; stats: MarketStats; sources: SourceFreshness[];
 };
 
 async function getMarketData(): Promise<MarketData> {
@@ -64,15 +65,15 @@ async function getMarketData(): Promise<MarketData> {
     const sources: SourceFreshness[] = liveAuctions.length > 0
       ? [{ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() }]
       : [];
-    return { auctions: liveAuctions, activity: [], sales: [], endingSoon, pulse: [], stats: { endingSoon: endingSoon.length, sales: 0, domains: liveAuctions.length }, sources };
+    return { auctions: liveAuctions, activity: [], sales: [], endingSoon, pulse: [], news: await getDomainNews(5), stats: { endingSoon: endingSoon.length, sales: 0, domains: liveAuctions.length }, sources };
   }
 
   const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, sourcesResult, freshnessResult] =
     await Promise.all([
       supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
-        .eq("status", "live").order("ends_at", { ascending: true }).limit(20),
+        .eq("status", "live").gte("current_price", 10).order("ends_at", { ascending: true }).limit(20),
       supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
-        .eq("status", "live").gte("ends_at", now.toISOString()).lte("ends_at", tomorrow.toISOString())
+        .eq("status", "live").gte("current_price", 10).gte("ends_at", now.toISOString()).lte("ends_at", tomorrow.toISOString())
         .order("ends_at", { ascending: true }).limit(8),
       supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions(domains(name,tld),sources(name),currency)")
         .order("occurred_at", { ascending: false }).limit(12),
@@ -102,12 +103,15 @@ async function getMarketData(): Promise<MarketData> {
     sources.push({ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() });
   }
 
+  const liveNews = await getDomainNews(5);
+
   return {
     auctions: liveAuctions,
     endingSoon,
     activity: (activityResult.data ?? []) as unknown as ActivityEvent[],
     sales: (salesResult.data ?? []) as unknown as Sale[],
     pulse: (pulseResult.data ?? []) as unknown as MarketUpdate[],
+    news: liveNews,
     stats: { endingSoon: endingResult.count ?? endingSoon.length, sales: salesCountResult.count ?? 0, domains: domainsResult.count ?? liveAuctions.length },
     sources,
   };
@@ -142,7 +146,7 @@ function DomainLink({ name }: { name: string | undefined }) {
 }
 
 export default async function Home() {
-  const { auctions, activity, sales, endingSoon, pulse, stats, sources } = await getMarketData();
+  const { auctions, activity, sales, endingSoon, pulse, news, stats, sources } = await getMarketData();
   return (
     <main>
       <header className="topbar">
@@ -195,11 +199,11 @@ export default async function Home() {
         </div>
 
         <aside className="pulse">
-          <div className="section-heading"><div><span className="eyebrow">DOMAIN PULSE</span><h2>Industry</h2></div><span className="muted">Curated</span></div>
-          {pulse.length === 0 ? <div className="pulse-empty"><span className="empty-mark">·</span><p>No domain-industry updates connected yet.</p><small>Pulse is reserved for authorized feeds and curated source links.</small></div> : (
-            <div className="pulse-list">{pulse.map((item) => <a className="pulse-item" href={item.url} target="_blank" rel="noreferrer" key={item.id}>
-              <span className="pulse-category">{item.category}</span><strong>{item.title}</strong>
-              <small>{item.sources?.name ?? "Source"}{item.published_at ? ` · ${relativeTime(item.published_at)}` : ""}</small>
+          <div className="section-heading"><div><span className="eyebrow">DOMAIN PULSE</span><h2>Industry news</h2></div><span className="muted">5 sources</span></div>
+          {news.length === 0 ? <div className="pulse-empty"><span className="empty-mark">·</span><p>No news headlines available right now.</p><small>Daggr only shows headlines it can retrieve from the source.</small></div> : (
+            <div className="pulse-list">{news.map((item) => <a className="pulse-item" href={item.url} target="_blank" rel="noopener noreferrer" key={item.source}>
+              <span className="pulse-category">{item.source}</span><strong>{item.title}</strong>
+              <small>Open article ↗</small>
             </a>)}</div>
           )}
         </aside>
