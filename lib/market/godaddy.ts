@@ -30,10 +30,20 @@ function pick(row: Record<string, unknown>, names: string[]): unknown {
 }
 
 function money(value: unknown): number | null {
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    for (const key of ["amount", "value", "usd", "price", "current", "currentBid", "bid", "microUnits"]) {
+      if (object[key] !== undefined && object[key] !== null) {
+        const parsed = money(object[key]);
+        if (parsed !== null) return parsed;
+      }
+    }
+    return null;
+  }
   if (typeof value === "string") {
-    const cleaned = value.replace(/[^0-9.-]/g, "");
+    const cleaned = value.replace(/[$,\s]/g, "");
     const number = Number(cleaned);
-    return Number.isFinite(number) ? number : null;
+    return Number.isFinite(number) ? (number > 100000 ? number / 1000000 : number) : null;
   }
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
@@ -84,7 +94,7 @@ export async function fetchGoDaddyListings(limit = 200, offset = 0) {
       return {
         domain,
         listingId,
-        currentPrice: money(pick(row, ["priceCurrent","currentBid","bidAmountUsd","price"])),
+        currentPrice: money(pick(row, ["priceCurrent","currentBid","bidAmountUsd","price","currentPrice","bid","bidPrice","minimumBid","price_current"])),
         bidCount: Number(pick(row, ["bidsCount","bidCount","numberOfBids","bids"]) ?? 0),
         endsAt: String(pick(row, ["auctionEndAt","auctionEndTime","endTime","endsAt","auction_end_at"]) ?? "") || null,
         startsAt: String(pick(row, ["auctionStartAt","auctionStartTime","startTime","startsAt","auction_start_at"]) ?? "") || null,
