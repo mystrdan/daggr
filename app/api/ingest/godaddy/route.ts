@@ -54,7 +54,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { listings, observedAt, rawCount } = await fetchGoDaddyListings(200);
+    const { listings: allListings, observedAt, rawCount } = await fetchGoDaddyListings(0, 0);
+    const listings = allListings.filter((listing) => listing.currentPrice !== null && listing.currentPrice >= 10);
 
     const domains = listings.map((listing) => {
       const [label, ...rest] = listing.domain.split(".");
@@ -132,7 +133,7 @@ export async function GET(request: Request) {
         prepared: auctionRows.length,
         imported,
         skipped: listings.length - auctionRows.length,
-        metadata: { observed_at: observedAt },
+        metadata: { observed_at: observedAt, minimum_price_usd: 10 },
       })
       .eq("id", run.id);
 
