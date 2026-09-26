@@ -1,6 +1,6 @@
 import { unzipSync, strFromU8 } from "fflate";
 
-export const GODADDY_INVENTORY_URL = "https://origin-auctions-inventory.godaddy.com/recent_listings.json.zip";
+export const GODADDY_INVENTORY_URL = "https://origin-auctions-inventory.godaddy.com/biddable_auctions_non_adult.json.zip";
 
 function findRecords(value: unknown): Record<string, unknown>[] {
   if (Array.isArray(value) && value.length && typeof value[0] === "object") {
@@ -57,7 +57,7 @@ export async function fetchGoDaddyListings(limit = 200, offset = 0) {
 
   try {
     const response = await fetch(GODADDY_INVENTORY_URL, {
-      cache: "no-store",
+      next: { revalidate: 300 },
       headers: { "User-Agent": "Daggr/1.0 market explorer" },
       signal: controller.signal,
     });
