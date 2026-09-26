@@ -1,6 +1,6 @@
 import { unzipSync, strFromU8 } from "fflate";
 
-export const GODADDY_INVENTORY_URL = "https://origin-auctions-inventory.godaddy.com/biddable_auctions_non_adult.json.zip";
+export const GODADDY_INVENTORY_URL = "https://origin-auctions-inventory.godaddy.com/recent_listings.json.zip";
 
 function findRecords(value: unknown): Record<string, unknown>[] {
   if (Array.isArray(value) && value.length && typeof value[0] === "object") {
