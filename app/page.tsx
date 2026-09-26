@@ -6,7 +6,8 @@ import LiveAuctions from "./live-auctions";
 
 async function getLiveGoDaddy(): Promise<Auction[]> {
   try {
-    const { listings } = await fetchGoDaddyListings(200);
+    const { listings: allListings } = await fetchGoDaddyListings(0, 0);
+    const listings = allListings.filter((listing) => listing.currentPrice !== null && listing.currentPrice >= 10);
     return listings.map((listing) => ({
       id: "godaddy-" + (listing.listingId ?? listing.domain + "-" + (listing.endsAt ?? "")),
       status: "live",
