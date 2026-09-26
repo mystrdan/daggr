@@ -80,8 +80,8 @@ export default function LiveAuctions() {
 
     {loading && !listings.length ? <div className="empty compact"><h3>Loading live market data…</h3><p>Fetching the latest auction inventory.</p></div> : !listings.length ? <div className="empty compact"><h3>No listings on this page.</h3><p>Try another sort or page.</p></div> : (
       <>
-        <div className="table-wrap"><table><thead><tr><th>Domain</th><th>Source</th><th>Type</th><th>Bids</th><th>Current</th><th>Ends</th></tr></thead><tbody>
-          {listings.map((item) => <tr key={item.listingId ?? item.domain}><td><strong>{item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.domain}</a> : item.domain}</strong></td><td>GoDaddy Auctions</td><td>{item.listingType ?? "—"}</td><td>{item.bidCount}</td><td>{money(item.currentPrice)}</td><td>{item.endsAt ? new Date(item.endsAt).toLocaleString() : "—"}</td></tr>)}
+        <div className="table-wrap"><table><thead><tr><th>Domain</th><th>Source</th><th>Type</th><th>Bids</th><th>Current</th><th>Ends</th><th></th></tr></thead><tbody>
+          {listings.map((item) => <tr key={item.listingId ?? item.domain}><td><strong>{item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.domain}</a> : item.domain}</strong></td><td>GoDaddy Auctions</td><td>{item.listingType ?? "—"}</td><td>{item.bidCount}</td><td>{money(item.currentPrice)}</td><td>{item.endsAt ? new Date(item.endsAt).toLocaleString() : "—"}</td><td>{item.sourceUrl && (!item.endsAt || new Date(item.endsAt).getTime() > Date.now()) ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="auction-link">Open auction ↗</a> : "Closed"}</td></tr>)}
         </tbody></table></div>
         <div className="market-pagination">
           <button disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>← Previous</button>
