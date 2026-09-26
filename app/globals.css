@@ -31,3 +31,5 @@ kbd{color:#777;border:1px solid #333;border-radius:5px;padding:3px 7px;font-size
 .market-pagination a{border:1px solid #303030;background:#111;color:#aaa;border-radius:6px;padding:8px 12px;font-size:11px}.market-pagination a:hover:not(.pagination-disabled){color:#fff;border-color:#444}.market-pagination .pagination-disabled{opacity:.35;pointer-events:none}.market-pagination a+span{color:#777;font-size:11px;min-width:105px;text-align:center}
 
 .auction-link{color:#9cff5a;font-size:11px;white-space:nowrap}.auction-link:hover{text-decoration:underline}
+
+.auction-link{color:#9cff5a;font-size:11px;white-space:nowrap}.auction-link:hover{text-decoration:underline}.pulse-item{transition:color .15s ease}.pulse-item:hover{color:#9cff5a}
