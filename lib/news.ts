@@ -6,14 +6,14 @@ export type DomainNewsItem = {
 };
 
 const SOURCES = [
+  { name: "Domain Name Wire", site: "https://domainnamewire.com/", feed: "https://domainnamewire.com/feed/" },
+  { name: "DNJournal", site: "https://www.dnjournal.com/lowdown.htm", feed: "https://www.dnjournal.com/lowdown.xml" },
+  { name: "Domain Incite", site: "https://domainincite.com/", feed: "https://domainincite.com/feed/" },
   { name: "Doma Blog", site: "https://blog.doma.xyz/", feed: "https://blog.doma.xyz/feed/" },
-  { name: "D3 Blog", site: "https://blog.d3.com/", feed: "https://blog.d3.com/feed/" },
-  { name: "ENS Blog", site: "https://ens.domains/blog", feed: "https://ens.domains/blog/rss.xml" },
-  { name: "Solana", site: "https://solana.com/podcasts/the-index", feed: "https://solana.com/podcasts/the-index/rss.xml" },
-  { name: "Blockhead", site: "https://www.blockhead.co/", feed: "https://www.blockhead.co/feed/" },
+  { name: "Dynadot", site: "https://www.dynadot.com/blog", feed: "https://www.dynadot.com/blog/feed/" },
 ] as const;
 
-const TOKENIZED_TERMS = /tokeniz|tokenized|onchain|on-chain|domainfi|doma|domain asset|domain token|web3 name|ensv2|naming/i;
+const TOKENIZED_TERMS = /domain|dns|registr|auction|aftermarket|sale|sales|tokeniz|tokenized|onchain|on-chain|domainfi|doma|drop|tld|registry|icann|web3/i;
 
 function clean(value: string) {
   return value.replace(/<!\[CDATA\[/g, "").replace(/\]\]>/g, "")
