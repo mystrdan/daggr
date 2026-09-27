@@ -103,7 +103,8 @@ async function persist(listings: Listing[], observedAt: string) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return;
   const supabase = createClient(url, key);
-  const qualifying = listings.filter((x) => x.currentPrice !== null && x.currentPrice >= MIN_PRICE);
+  const now = new Date();
+    const qualifying = listings.filter((x) => x.currentPrice !== null && x.currentPrice >= MIN_PRICE && (!x.endsAt || new Date(x.endsAt).getTime() > now.getTime()));
   const { data: source } = await supabase.from("sources").select("id").eq("name", "GoDaddy Auctions").maybeSingle();
   if (!source || !qualifying.length) return;
 
@@ -157,7 +158,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const { listings, observedAt } = await fetchGoDaddy();
-    const qualifying = listings.filter((x) => x.currentPrice !== null && x.currentPrice >= MIN_PRICE);
+    const now = new Date();
+    const qualifying = listings.filter((x) => x.currentPrice !== null && x.currentPrice >= MIN_PRICE && (!x.endsAt || new Date(x.endsAt).getTime() > now.getTime()));
 
     if (sort === "ending") qualifying.sort((a, b) => (a.endsAt ?? "9999").localeCompare(b.endsAt ?? "9999"));
     else if (sort === "bids") qualifying.sort((a, b) => b.bidCount - a.bidCount);
