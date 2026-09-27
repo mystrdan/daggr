@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import VerisignDropOrder from "../../verisign-drop-order";
 
 type Event = {
   id: number;
@@ -55,6 +54,9 @@ export default async function DomainPage({
   if (!url || !key) return <main><p>Supabase configuration is missing.</p></main>;
 
   const supabase = createClient(url, key);
+  const { data: domaSource } = await supabase.from("sources").select("id").eq("name", "Doma").maybeSingle();
+  if (!domaSource) return <main><p>Doma market source is not configured.</p></main>;
+
   const { data: domainRow } = await supabase
     .from("domains")
     .select("id,name,tld,first_seen_at,last_seen_at")
@@ -79,6 +81,7 @@ export default async function DomainPage({
     .from("auctions")
     .select("id,status,current_price,currency,bid_count,starts_at,ends_at,source_url")
     .eq("domain_id", domainRow.id)
+    .eq("source_id", domaSource.id)
     .order("updated_at", { ascending: false })
     .limit(10);
 
@@ -98,32 +101,26 @@ export default async function DomainPage({
       .from("sales")
       .select("id,sale_price,currency,sold_at,source_url")
       .eq("domain_id", domainRow.id)
+      .eq("source_id", domaSource.id)
       .order("sold_at", { ascending: false })
       .limit(10),
   ]);
 
   const events = (eventsResult.data ?? []) as Event[];
   const sales = (salesResult.data ?? []) as Sale[];
-  const tld = domainRow.tld.startsWith(".") ? domainRow.tld : `.${domainRow.tld}`;
-  const keyword = domainRow.name.split(".")[0];
-  const [tldStatsResult, retailStatsResult] = await Promise.all([
-    fetch("https://api.namebio.com/tldstats", { method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body: new URLSearchParams({extension:tld}).toString(), next:{revalidate:86400} }).then(r=>r.ok?r.json():null).catch(()=>null),
-    fetch("https://api.namebio.com/retailstats", { method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body: new URLSearchParams({keyword}).toString(), next:{revalidate:86400} }).then(r=>r.ok?r.json():null).catch(()=>null)
-  ]);
-  const tldStats = tldStatsResult?.data;
-  const retailStats = retailStatsResult?.data;
+
 
   return (
     <main>
       <header className="topbar">
         <Link className="brand" href="/">daggr<span>.</span></Link>
-        <nav><Link href="/#auctions">Auctions</Link><Link href="/#activity">Activity</Link></nav>
+        <nav><Link href="/#market">Market</Link><Link href="/#activity">Activity</Link></nav>
       </header>
 
       <section className="hero">
-        <div className="eyebrow">DOMAIN MARKET</div>
+        <div className="eyebrow">TOKENIZED DOMAIN</div>
         <h1>{domainRow.name}</h1>
-        <p>Market activity recorded by Daggr across connected sources.</p>
+        <p>Onchain market activity recorded by Daggr from Doma.</p>
       </section>
 
       <section className="stats">
@@ -133,12 +130,8 @@ export default async function DomainPage({
         <div><strong>.{domainRow.tld}</strong><span>TLD</span></div>
       </section>
 
-      <section className="section">
-        <div className="context-grid"><VerisignDropOrder domain={domainRow.name} /></div>
-      </section>
-
-      <section className="section">
-        <div className="section-heading"><div><span className="eyebrow">AUCTIONS</span><h2>Auction history</h2></div></div>
+            <section className="section">
+        <div className="section-heading"><div><span className="eyebrow">TOKENIZED LISTINGS</span><h2>Listing history</h2></div></div>
         {auctions.length === 0 ? <div className="empty"><h3>No auction activity recorded.</h3></div> : (
           <div className="table-wrap"><table><thead><tr><th>Status</th><th>Bids</th><th>Current</th><th>Ends</th></tr></thead><tbody>
             {auctions.map((a) => <tr key={a.id}><td><span className="pill live">{a.status.toUpperCase()}</span></td><td>{a.bid_count}</td><td>{price(a.current_price,a.currency)}</td><td>{a.ends_at ? new Date(a.ends_at).toLocaleString() : "—"}</td></tr>)}
@@ -156,7 +149,7 @@ export default async function DomainPage({
       </section>
 
       <section className="section">
-        <div className="section-heading"><div><span className="eyebrow">SALES</span><h2>Recorded sales</h2></div></div>
+        <div className="section-heading"><div><span className="eyebrow">ONCHAIN SALES</span><h2>Recorded sales</h2></div></div>
         {sales.length === 0 ? <div className="empty"><h3>No recorded sales yet.</h3></div> : (
           <div className="table-wrap"><table><thead><tr><th>Price</th><th>Sold</th><th>Source</th></tr></thead><tbody>
             {sales.map((s) => <tr key={s.id}><td>{price(s.sale_price,s.currency)}</td><td>{s.sold_at ? new Date(s.sold_at).toLocaleString() : "—"}</td><td>{s.source_url ? <a href={s.source_url} target="_blank" rel="noreferrer">Open source</a> : "—"}</td></tr>)}
@@ -164,7 +157,7 @@ export default async function DomainPage({
         )}
       </section>
 
-      <footer><span>daggr</span><span>Domain market explorer · {domainRow.name}</span></footer>
+      <footer><span>daggr</span><span>Tokenized domain market · {domainRow.name}</span></footer>
     </main>
   );
 }
