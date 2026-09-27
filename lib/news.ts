@@ -9,11 +9,9 @@ const SOURCES = [
   { name: "Domain Name Wire", site: "https://domainnamewire.com/", feed: "https://domainnamewire.com/feed/" },
   { name: "DNJournal", site: "https://www.dnjournal.com/lowdown.htm", feed: "https://www.dnjournal.com/lowdown.xml" },
   { name: "Domain Incite", site: "https://domainincite.com/", feed: "https://domainincite.com/feed/" },
-  { name: "Doma Blog", site: "https://blog.doma.xyz/", feed: "https://blog.doma.xyz/feed/" },
+  { name: "GoDaddy Auctions", site: "https://www.godaddy.com/resources/news/", feed: "https://www.godaddy.com/resources/news/feed/" },
   { name: "Dynadot", site: "https://www.dynadot.com/blog", feed: "https://www.dynadot.com/blog/feed/" },
 ] as const;
-
-const TOKENIZED_TERMS = /domain|dns|registr|auction|aftermarket|sale|sales|tokeniz|tokenized|onchain|on-chain|domainfi|doma|drop|tld|registry|icann|web3/i;
 
 function clean(value: string) {
   return value.replace(/<!\[CDATA\[/g, "").replace(/\]\]>/g, "")
@@ -22,16 +20,13 @@ function clean(value: string) {
     .replace(/&#x27;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/\s+/g, " ").trim();
 }
-
 function decodeUrl(value: string, base: string) {
   try { return new URL(clean(value), base).toString(); } catch { return ""; }
 }
-
 function firstTag(block: string, tag: string) {
   const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
   return match ? clean(match[1]) : "";
 }
-
 function extractRss(xml: string, source: typeof SOURCES[number]): DomainNewsItem | null {
   const blocks = xml.match(/<item[\\s\\S]*?<\\/item>/gi) ?? xml.match(/<entry[\\s\\S]*?<\\/entry>/gi) ?? [];
   for (const block of blocks.slice(0, 20)) {
@@ -40,46 +35,36 @@ function extractRss(xml: string, source: typeof SOURCES[number]): DomainNewsItem
     const link = linkTag?.[1] ?? firstTag(block, "link");
     const url = decodeUrl(link, source.site);
     const published = firstTag(block, "pubDate") || firstTag(block, "published") || firstTag(block, "updated") || null;
-    if (title.length >= 12 && url && TOKENIZED_TERMS.test(title)) return { title, url, source: source.name, publishedAt: published };
+    if (title.length >= 12 && url) return { title, url, source: source.name, publishedAt: published };
   }
   return null;
 }
-
 function extractHtml(html: string, source: typeof SOURCES[number]): DomainNewsItem | null {
   const heading = /<h[1-4][^>]*>\s*<a[^>]+href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>\s*<\\/h[1-4]>/gi;
   let match: RegExpExecArray | null;
   while ((match = heading.exec(html))) {
     const title = clean(match[2]);
     const url = decodeUrl(match[1], source.site);
-    if (title.length >= 20 && title.length <= 220 && url && TOKENIZED_TERMS.test(title)) {
-      return { title, url, source: source.name, publishedAt: null };
-    }
+    if (title.length >= 20 && title.length <= 220 && url) return { title, url, source: source.name, publishedAt: null };
   }
   return null;
 }
-
 async function fetchSource(source: typeof SOURCES[number]) {
   try {
     const response = await fetch(source.feed, {
-      headers: { "User-Agent": "Daggr/1.0 tokenized domain market explorer", Accept: "application/rss+xml, application/atom+xml, text/xml, text/html;q=0.8" },
+      headers: { "User-Agent": "Daggr/1.0 domain market explorer", Accept: "application/rss+xml, application/atom+xml, text/xml, text/html;q=0.8" },
       next: { revalidate: 600 },
     });
     if (!response.ok) throw new Error(String(response.status));
-    return extractRss(await response.text(), source) ?? null;
+    return extractRss(await response.text(), source);
   } catch {
     try {
-      const response = await fetch(source.site, {
-        headers: { "User-Agent": "Daggr/1.0 tokenized domain market explorer" },
-        next: { revalidate: 600 },
-      });
+      const response = await fetch(source.site, { headers: { "User-Agent": "Daggr/1.0 domain market explorer" }, next: { revalidate: 600 } });
       if (!response.ok) return null;
       return extractHtml(await response.text(), source);
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }
 }
-
 export async function getDomainNews(limit = 5): Promise<DomainNewsItem[]> {
   const results = await Promise.all(SOURCES.map(fetchSource));
   const seen = new Set<string>();
