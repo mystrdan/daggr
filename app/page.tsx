@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import MarketAuctions from "./market-auctions";
+import TokenizedMarket from "./tokenized-market";
 import { getDomainNews } from "../lib/news";
 
 
@@ -94,7 +95,7 @@ export default async function Home() {
     <main>
       <header className="topbar">
         <a className="brand" href="/">daggr<span>.</span></a>
-        <nav><a href="#market">Market</a><a href="#activity">Activity</a><Link href="/sources">Sources</Link></nav>
+        <nav><a href="#market">Market</a><a href="#onchain">Onchain</a><a href="#activity">Activity</a><Link href="/sources">Sources</Link></nav>
         <Link className="search-button" href="/search">Search domains</Link>
       </header>
 
@@ -128,6 +129,11 @@ export default async function Home() {
       <section className="section" id="market">
         <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Domain market</h2></div><span className="muted">All connected markets · $10 minimum</span></div>
         <MarketAuctions />
+      </section>
+
+      <section className="section" id="onchain">
+        <div className="section-heading"><div><span className="eyebrow">ONCHAIN</span><h2>Tokenized domains</h2></div><span className="muted">Onchain markets · $10 minimum</span></div>
+        <TokenizedMarket />
       </section>
 
       <section className="section pulse-layout" id="activity">
