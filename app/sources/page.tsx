@@ -33,9 +33,12 @@ async function getData() {
   const [sources, runs] = await Promise.all([
     supabase.from("sources")
       .select("id,name,kind,active,access_status,credential_env,feed_types,docs_url")
+      .eq("active", true)
+      .eq("name", "Doma")
       .order("name"),
     supabase.from("ingestion_runs")
-      .select("id,connector,status,started_at,completed_at,received,imported,skipped,error")
+      .select("id,connector,status,started_at,completed_at,received,imported,skipped,error,source_id")
+      .eq("source_id", (sources.data?.[0] as {id?: string} | undefined)?.id ?? "")
       .order("started_at", { ascending: false })
       .limit(20),
   ]);
@@ -69,19 +72,19 @@ export default async function SourcesPage() {
     <main>
       <header className="topbar">
         <Link className="brand" href="/">daggr<span>.</span></Link>
-        <nav><Link href="/">Market</Link><a href="/#activity">Activity</a><a href="/#sales">Sales</a></nav>
+        <nav><Link href="/">Market</Link><a href="/#activity">Activity</a></nav>
         <Link className="search-button" href="/search">Search domains</Link>
       </header>
 
       <section className="hero source-hero">
         <div className="eyebrow">DATA SOURCES</div>
-        <h1>Where Daggr gets its market signals.</h1>
+        <h1>Where Daggr gets its tokenized market signals.</h1>
         <p>Connector status, supported feeds and ingestion history. Daggr only displays data from sources it can legitimately access.</p>
       </section>
 
       <section className="section">
         <div className="section-heading">
-          <div><span className="eyebrow">CONNECTORS</span><h2>Market sources</h2></div>
+          <div><span className="eyebrow">CONNECTORS</span><h2>Tokenized market source</h2></div>
           <span className="muted">{sources.length} configured</span>
         </div>
 
@@ -138,7 +141,7 @@ export default async function SourcesPage() {
         )}
       </section>
 
-      <footer><span>daggr</span><span>Domain market explorer · data sources</span></footer>
+      <footer><span>daggr</span><span>Tokenized domain market · data source</span></footer>
     </main>
   );
 }
