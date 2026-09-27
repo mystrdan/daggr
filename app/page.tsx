@@ -99,9 +99,9 @@ export default async function Home() {
       </header>
 
       <section className="hero">
-        <div className="eyebrow">TOKENIZED DOMAIN MARKET EXPLORER</div>
-        <h1>See what&apos;s happening in the tokenized domain market.</h1>
-        <p>Tokenized domains, onchain listings and market activity — brought together in one place.</p>
+        <div className="eyebrow">DOMAIN MARKET EXPLORER</div>
+        <h1>See what&apos;s happening in the domain market.</h1>
+        <p>Live auctions, expiring domains, sales and market activity — brought together in one place.</p>
         <form className="search" action="/search" method="get"><span>⌕</span><input name="q" aria-label="Search domains" placeholder="Search a domain, TLD or keyword" /><kbd>↵</kbd></form>
       </section>
 
@@ -126,7 +126,7 @@ export default async function Home() {
       </section>
 
       <section className="section" id="market">
-        <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Tokenized market</h2></div><span className="muted">All connected markets · $10 minimum</span></div>
+        <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Domain market</h2></div><span className="muted">All connected markets · $10 minimum</span></div>
         <MarketAuctions />
       </section>
 
