@@ -175,7 +175,7 @@ export default async function Home() {
         <div><span className="eyebrow">DISCOVERY</span><h2>Built for signals, not noise.</h2><p className="copy">Daggr turns domain-market events into something you can scan, filter and understand quickly.</p></div>
         <div className="signal-list"><div><b>01</b><span>Live auctions</span></div><div><b>02</b><span>Expired &amp; dropping</span></div><div><b>03</b><span>Recent sales</span></div><div><b>04</b><span>Historical activity</span></div></div>
       </section>
-      <footer><span>daggr</span><span>Domain market explorer · v0.1</span></footer>
+      <footer><span>daggr</span><span>Domain market explorer · live feed</span></footer>
     </main>
   );
 }
