@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import TokenizedMarket from "./tokenized-market";
+import MarketAuctions from "./market-auctions";
 import { getDomainNews } from "../lib/news";
 
 
@@ -33,64 +33,31 @@ export const dynamic = "force-dynamic";
 };
 
 async function getMarketData(): Promise<MarketData> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const supabase = url && key ? createClient(url, key) : null;
-  const now = new Date();
-  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const liveNews = await getDomainNews(5);
+  const url=process.env.NEXT_PUBLIC_SUPABASE_URL, key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const supabase=url&&key?createClient(url,key):null;
+  const now=new Date(), tomorrow=new Date(now.getTime()+24*60*60*1000);
+  const news=await getDomainNews(5);
+  if(!supabase) return {auctions:[],activity:[],sales:[],endingSoon:[],pulse:[],news,stats:{endingSoon:0,sales:0,domains:0},sources:[]};
 
-  if (!supabase) {
-    return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], news: liveNews, stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
-  }
-
-  const { data: doma } = await supabase.from("sources")
-    .select("id,name,active,kind,access_status,credential_env,feed_types")
-    .eq("name", "Doma").maybeSingle();
-
-  if (!doma) {
-    return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], news: liveNews, stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
-  }
-
-  const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, freshnessResult] =
-    await Promise.all([
-      supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
-        .eq("source_id", doma.id).eq("status", "live").gte("current_price", 10).order("updated_at", { ascending: false }).limit(20),
-      supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
-        .eq("source_id", doma.id).eq("status", "live").gte("current_price", 10).gte("ends_at", now.toISOString()).lte("ends_at", tomorrow.toISOString())
-        .order("ends_at", { ascending: true }).limit(8),
-      supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions!inner(domains(name,tld),sources(name),currency,source_id)")
-        .eq("auctions.source_id", doma.id).order("occurred_at", { ascending: false }).limit(12),
-      supabase.from("sales").select("id,sale_price,currency,sold_at,source_url,domains(name,tld),sources(name)")
-        .eq("source_id", doma.id).order("sold_at", { ascending: false }).limit(8),
-      supabase.from("sales").select("id", { count: "exact", head: true }).eq("source_id", doma.id),
-      supabase.from("domains").select("id", { count: "exact", head: true }),
-      supabase.from("market_updates").select("id,title,url,category,published_at,sources(name)")
-        .eq("source_id", doma.id).order("published_at", { ascending: false, nullsFirst: false }).limit(6),
-      supabase.from("auctions").select("source_id,updated_at").eq("source_id", doma.id).order("updated_at", { ascending: false }).limit(1),
-    ]);
-
-  const liveAuctions = (auctionResult.data ?? []) as unknown as Auction[];
-  const endingSoon = (endingResult.data ?? []) as unknown as Auction[];
-  const sources: SourceFreshness[] = [{
-    ...doma,
-    latest: ((freshnessResult.data ?? [])[0] as { updated_at?: string } | undefined)?.updated_at ?? null,
-  }];
-
-  return {
-    auctions: liveAuctions,
-    endingSoon,
-    activity: (activityResult.data ?? []) as unknown as ActivityEvent[],
-    sales: (salesResult.data ?? []) as unknown as Sale[],
-    pulse: (pulseResult.data ?? []) as unknown as MarketUpdate[],
-    news: liveNews,
-    stats: {
-      endingSoon: endingSoon.length,
-      sales: salesCountResult.count ?? 0,
-      domains: domainsResult.count ?? 0,
-    },
-    sources,
-  };
+  const [auctionResult,endingResult,activityResult,salesResult,salesCountResult,domainsResult,pulseResult,sourcesResult,freshnessResult]=await Promise.all([
+    supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)").eq("status","live").gte("current_price",10).order("updated_at",{ascending:false}).limit(25),
+    supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)").eq("status","live").gte("current_price",10).gte("ends_at",now.toISOString()).lte("ends_at",tomorrow.toISOString()).order("ends_at",{ascending:true}).limit(8),
+    supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions!inner(domains(name,tld),sources(name),currency)").order("occurred_at",{ascending:false}).limit(12),
+    supabase.from("sales").select("id,sale_price,currency,sold_at,source_url,domains(name,tld),sources(name)").order("sold_at",{ascending:false}).limit(8),
+    supabase.from("sales").select("id",{count:"exact",head:true}),
+    supabase.from("domains").select("id",{count:"exact",head:true}),
+    supabase.from("market_updates").select("id,title,url,category,published_at,sources(name)").order("published_at",{ascending:false,nullsFirst:false}).limit(6),
+    supabase.from("sources").select("id,name,active,kind,access_status,credential_env,feed_types").eq("active",true),
+    supabase.from("auctions").select("source_id,updated_at").order("updated_at",{ascending:false}).limit(100)
+  ]);
+  const auctions=(auctionResult.data??[]) as unknown as Auction[];
+  const endingSoon=(endingResult.data??[]) as unknown as Auction[];
+  const rawSources=(sourcesResult.data??[]) as unknown as Source[];
+  const latestBySource=new Map<string,string>();
+  for(const row of (freshnessResult.data??[]) as {source_id:string;updated_at:string}[]) if(!latestBySource.has(row.source_id)) latestBySource.set(row.source_id,row.updated_at);
+  const sources:SourceFreshness[]=rawSources.map(s=>({...s,latest:latestBySource.get(s.id)??null}));
+  return {auctions,endingSoon,activity:(activityResult.data??[]) as unknown as ActivityEvent[],sales:(salesResult.data??[]) as unknown as Sale[],pulse:(pulseResult.data??[]) as unknown as MarketUpdate[],news,
+    stats:{endingSoon:endingSoon.length,sales:salesCountResult.count??0,domains:domainsResult.count??0},sources};
 }
 
 function formatPrice(price: number | null, currency: string) {
@@ -159,8 +126,8 @@ export default async function Home() {
       </section>
 
       <section className="section" id="market">
-        <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Tokenized market</h2></div><span className="muted">Doma</span></div>
-        <TokenizedMarket />
+        <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Tokenized market</h2></div><span className="muted">All connected markets · $10 minimum</span></div>
+        <MarketAuctions />
       </section>
 
       <section className="section pulse-layout" id="activity">
