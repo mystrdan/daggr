@@ -60,7 +60,9 @@ export default async function SearchPage({
   let domainTotal = 0;
   let domainTotalPages = 1;
 
-  if (query) {
+  const { data: domaSource } = await supabase.from("sources").select("id").eq("name", "Doma").maybeSingle();
+
+  if (query && domaSource) {
     const safeQuery = query.replace(/[^a-zA-Z0-9.-]/g, "");
     const pattern = `%${safeQuery}%`;
     const domainResult = await supabase
@@ -70,7 +72,14 @@ export default async function SearchPage({
        .order("last_seen_at", { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
-    domains = (domainResult.data ?? []) as unknown as Domain[];
+    const allMatched = (domainResult.data ?? []) as unknown as Domain[];
+    const tokenizedIds = new Set<string>();
+    if (allMatched.length) {
+      const tokenized = await supabase.from("auctions").select("domain_id").eq("source_id", domaSource.id).in("domain_id", allMatched.map((d) => d.id));
+      for (const row of tokenized.data ?? []) tokenizedIds.add(row.domain_id as string);
+    }
+    domains = allMatched.filter((d) => tokenizedIds.has(d.id));
+    domainTotal = domains.length;
     domainTotal = domainResult.count ?? 0;
     domainTotalPages = Math.max(1, Math.ceil(domainTotal / pageSize));
     const domainIds = domains.map((domain) => domain.id);
@@ -79,7 +88,9 @@ export default async function SearchPage({
       const auctionResult = await supabase
         .from("auctions")
         .select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
+        .eq("source_id", domaSource.id)
         .eq("status", "live")
+        .gte("current_price", 10)
         .in("domain_id", domainIds)
         .order("ends_at", { ascending: true })
         .limit(20);
@@ -91,7 +102,7 @@ export default async function SearchPage({
     <main>
       <header className="topbar">
         <Link className="brand" href="/">daggr<span>.</span></Link>
-        <nav><Link href="/#auctions">Auctions</Link><Link href="/#activity">Activity</Link></nav>
+        <nav><Link href="/#market">Market</Link><Link href="/#activity">Activity</Link></nav>
         <Link className="search-button" href="/">Market</Link>
       </header>
 
@@ -110,7 +121,7 @@ export default async function SearchPage({
         <>
           <section className="section">
             <div className="section-heading">
-              <div><span className="eyebrow">DOMAINS</span><h2>Matches for “{query}”</h2></div>
+              <div><span className="eyebrow">TOKENIZED DOMAINS</span><h2>Matches for “{query}”</h2></div>
               <span className="muted">{domainTotal || domains.length} found</span>
             </div>
             {domains.length === 0 ? (
@@ -130,11 +141,11 @@ export default async function SearchPage({
 
           <section className="section">
             <div className="section-heading">
-              <div><span className="eyebrow">LIVE MARKET</span><h2>Matching auctions</h2></div>
+              <div><span className="eyebrow">TOKENIZED MARKET</span><h2>Matching listings</h2></div>
               <span className="muted">{auctions.length} found</span>
             </div>
             {auctions.length === 0 ? (
-              <div className="empty"><h3>No live auctions matched.</h3><p>Try a domain name or a broader keyword.</p></div>
+              <div className="empty"><h3>No tokenized listings matched.</h3><p>Try a domain name or a broader keyword.</p></div>
             ) : (
               <div className="table-wrap"><table><thead><tr><th>Domain</th><th>Source</th><th>Bids</th><th>Current</th><th>Ends</th></tr></thead><tbody>
                 {auctions.map((auction) => (
@@ -154,7 +165,7 @@ export default async function SearchPage({
         <section className="section"><div className="empty"><div className="empty-mark">⌕</div><h3>Search the market.</h3><p>Enter a domain, extension or keyword to explore what Daggr has recorded.</p></div></section>
       )}
 
-      <footer><span>daggr</span><span>Domain market explorer · search</span></footer>
+      <footer><span>daggr</span><span>Tokenized domain market · search</span></footer>
     </main>
   );
 }
