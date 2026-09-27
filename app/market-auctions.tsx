@@ -35,7 +35,7 @@ export default function MarketAuctions() {
       </div>
       <span className="market-total">{data?.total ? `${data.total.toLocaleString()} qualifying auctions` : "Minimum current price: $10"}</span>
     </div>
-    {loading&&!rows.length?<div className="empty compact"><h3>Loading market…</h3><p>Showing active auctions with a current price of at least $10.</p></div>
+    {loading&&!rows.length?<div className="empty compact"><h3>Loading market…</h3><p>Showing open auctions with a current price of at least $10.</p></div>
     :data?.error?<div className="empty"><div className="empty-mark">!</div><h3>Market feed unavailable.</h3><p>{data.error}</p></div>
     :!rows.length?<div className="empty"><div className="empty-mark">◇</div><h3>No qualifying auctions.</h3><p>Daggr filters out active auctions below $10 to keep the market feed focused.</p></div>
     :<>
@@ -51,7 +51,7 @@ export default function MarketAuctions() {
         <span>Page {page.toLocaleString()} of {(data?.totalPages??1).toLocaleString()}</span>
         <button disabled={page>=(data?.totalPages??1)||loading} onClick={()=>setPage(v=>Math.min(data?.totalPages??1,v+1))}>Next →</button>
       </div>
-      <p className="muted" style={{marginTop:"12px"}}>Active auctions only · current price ≥ $10 · multiple market sources · observed {data?.observedAt?new Date(data.observedAt).toLocaleTimeString():"now"}</p>
+      <p className="muted" style={{marginTop:"12px"}}>Open auctions only · current price ≥ $10 · multiple market sources · observed {data?.observedAt?new Date(data.observedAt).toLocaleTimeString():"now"}</p>
     </>}
   </div>;
 }
