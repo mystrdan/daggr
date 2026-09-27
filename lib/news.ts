@@ -9,8 +9,8 @@ const SOURCES = [
   { name: "Domain Name Wire", site: "https://domainnamewire.com/", feed: "https://domainnamewire.com/feed/" },
   { name: "DNJournal", site: "https://www.dnjournal.com/lowdown.htm", feed: "https://www.dnjournal.com/lowdown.xml" },
   { name: "Domain Incite", site: "https://domainincite.com/", feed: "https://domainincite.com/feed/" },
-  { name: "GoDaddy Auctions", site: "https://www.godaddy.com/resources/news/", feed: "https://www.godaddy.com/resources/news/feed/" },
-  { name: "Dynadot", site: "https://www.dynadot.com/blog", feed: "https://www.dynadot.com/blog/feed/" },
+  { name: "Domain Investing", site: "https://domaininvesting.com/", feed: "https://domaininvesting.com/feed/" },
+  { name: "NamePros", site: "https://www.namepros.com/blog/", feed: "https://www.namepros.com/blog/index.rss" },
 ] as const;
 
 function clean(value: string) {
