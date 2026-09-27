@@ -1,28 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { fetchGoDaddyListings } from "../lib/market/godaddy";
 import Link from "next/link";
-import LiveAuctions from "./live-auctions";
+import TokenizedMarket from "./tokenized-market";
 import { getDomainNews } from "../lib/news";
 
-
-async function getLiveGoDaddy(): Promise<Auction[]> {
-  try {
-    const { listings: allListings } = await fetchGoDaddyListings(0, 0);
-    const listings = allListings.filter((listing) => listing.currentPrice !== null && listing.currentPrice >= 10);
-    return listings.map((listing) => ({
-      id: "godaddy-" + (listing.listingId ?? listing.domain + "-" + (listing.endsAt ?? "")),
-      status: "live",
-      current_price: listing.currentPrice,
-      currency: "USD",
-      bid_count: Number.isFinite(listing.bidCount) ? Math.max(0, listing.bidCount) : 0,
-      ends_at: listing.endsAt,
-      domains: { name: listing.domain, tld: listing.domain.split(".").pop() ?? "" },
-      sources: { name: "GoDaddy Auctions" },
-    }));
-  } catch {
-    return [];
-  }
-}
 
 type Auction = {
   id: string; status: string; current_price: number | null; currency: string;
@@ -58,52 +38,44 @@ async function getMarketData(): Promise<MarketData> {
   const supabase = url && key ? createClient(url, key) : null;
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const liveNews = await getDomainNews(5);
 
   if (!supabase) {
-    const liveAuctions = await getLiveGoDaddy();
-    const endingSoon = liveAuctions.filter((auction) => auction.ends_at && new Date(auction.ends_at) >= now && new Date(auction.ends_at) <= tomorrow).slice(0, 8);
-    const sources: SourceFreshness[] = liveAuctions.length > 0
-      ? [{ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() }]
-      : [];
-    return { auctions: liveAuctions, activity: [], sales: [], endingSoon, pulse: [], news: await getDomainNews(5), stats: { endingSoon: endingSoon.length, sales: 0, domains: liveAuctions.length }, sources };
+    return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], news: liveNews, stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
   }
 
-  const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, sourcesResult, freshnessResult] =
+  const { data: doma } = await supabase.from("sources")
+    .select("id,name,active,kind,access_status,credential_env,feed_types")
+    .eq("name", "Doma").maybeSingle();
+
+  if (!doma) {
+    return { auctions: [], activity: [], sales: [], endingSoon: [], pulse: [], news: liveNews, stats: { endingSoon: 0, sales: 0, domains: 0 }, sources: [] };
+  }
+
+  const [auctionResult, endingResult, activityResult, salesResult, salesCountResult, domainsResult, pulseResult, freshnessResult] =
     await Promise.all([
       supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
-        .eq("status", "live").gte("current_price", 10).order("ends_at", { ascending: true }).limit(20),
+        .eq("source_id", doma.id).eq("status", "live").gte("current_price", 10).order("updated_at", { ascending: false }).limit(20),
       supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)")
-        .eq("status", "live").gte("current_price", 10).gte("ends_at", now.toISOString()).lte("ends_at", tomorrow.toISOString())
+        .eq("source_id", doma.id).eq("status", "live").gte("current_price", 10).gte("ends_at", now.toISOString()).lte("ends_at", tomorrow.toISOString())
         .order("ends_at", { ascending: true }).limit(8),
-      supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions(domains(name,tld),sources(name),currency)")
-        .order("occurred_at", { ascending: false }).limit(12),
+      supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions!inner(domains(name,tld),sources(name),currency,source_id)")
+        .eq("auctions.source_id", doma.id).order("occurred_at", { ascending: false }).limit(12),
       supabase.from("sales").select("id,sale_price,currency,sold_at,source_url,domains(name,tld),sources(name)")
-        .order("sold_at", { ascending: false }).limit(8),
-      supabase.from("sales").select("id", { count: "exact", head: true }),
+        .eq("source_id", doma.id).order("sold_at", { ascending: false }).limit(8),
+      supabase.from("sales").select("id", { count: "exact", head: true }).eq("source_id", doma.id),
       supabase.from("domains").select("id", { count: "exact", head: true }),
       supabase.from("market_updates").select("id,title,url,category,published_at,sources(name)")
-        .order("published_at", { ascending: false, nullsFirst: false }).limit(6),
-      supabase.from("sources").select("id,name,active,kind,access_status,credential_env,feed_types").eq("active", true).order("name"),
-      supabase.from("auctions").select("source_id,updated_at").not("source_id", "is", null).order("updated_at", { ascending: false }).limit(500),
+        .eq("source_id", doma.id).order("published_at", { ascending: false, nullsFirst: false }).limit(6),
+      supabase.from("auctions").select("source_id,updated_at").eq("source_id", doma.id).order("updated_at", { ascending: false }).limit(1),
     ]);
 
-  const dbAuctions = (auctionResult.data ?? []) as unknown as Auction[];
-  let liveAuctions = dbAuctions;
-
-  if (liveAuctions.length === 0) liveAuctions = await getLiveGoDaddy();
-
-  const fallbackEndingSoon = liveAuctions
-    .filter((auction) => auction.ends_at && new Date(auction.ends_at) >= now && new Date(auction.ends_at) <= tomorrow)
-    .slice(0, 8);
-  const endingSoon = ((endingResult.data ?? []) as unknown as Auction[]).length
-    ? ((endingResult.data ?? []) as unknown as Auction[])
-    : fallbackEndingSoon;
-  const sources = (sourcesResult.data ?? []) as unknown as SourceFreshness[];
-  if (sources.length === 0 && liveAuctions.length > 0) {
-    sources.push({ id: "live-godaddy", name: "GoDaddy Auctions", active: true, access_status: "connected", credential_env: [], feed_types: ["auctions"], latest: new Date().toISOString() });
-  }
-
-  const liveNews = await getDomainNews(5);
+  const liveAuctions = (auctionResult.data ?? []) as unknown as Auction[];
+  const endingSoon = (endingResult.data ?? []) as unknown as Auction[];
+  const sources: SourceFreshness[] = [{
+    ...doma,
+    latest: ((freshnessResult.data ?? [])[0] as { updated_at?: string } | undefined)?.updated_at ?? null,
+  }];
 
   return {
     auctions: liveAuctions,
@@ -112,7 +84,11 @@ async function getMarketData(): Promise<MarketData> {
     sales: (salesResult.data ?? []) as unknown as Sale[],
     pulse: (pulseResult.data ?? []) as unknown as MarketUpdate[],
     news: liveNews,
-    stats: { endingSoon: endingResult.count ?? endingSoon.length, sales: salesCountResult.count ?? 0, domains: domainsResult.count ?? liveAuctions.length },
+    stats: {
+      endingSoon: endingSoon.length,
+      sales: salesCountResult.count ?? 0,
+      domains: domainsResult.count ?? 0,
+    },
     sources,
   };
 }
@@ -151,14 +127,14 @@ export default async function Home() {
     <main>
       <header className="topbar">
         <a className="brand" href="/">daggr<span>.</span></a>
-        <nav><a href="#auctions">Auctions</a><a href="#activity">Activity</a><a href="#sales">Sales</a><Link href="/sources">Sources</Link></nav>
+        <nav><a href="#market">Market</a><a href="#activity">Activity</a><Link href="/sources">Sources</Link></nav>
         <Link className="search-button" href="/search">Search domains</Link>
       </header>
 
       <section className="hero">
-        <div className="eyebrow">DOMAIN MARKET EXPLORER</div>
-        <h1>See what&apos;s happening in the domain market.</h1>
-        <p>Live auctions, expired domains, sales and market activity — brought together in one place.</p>
+        <div className="eyebrow">TOKENIZED DOMAIN MARKET EXPLORER</div>
+        <h1>See what&apos;s happening in the tokenized domain market.</h1>
+        <p>Tokenized domains, onchain listings and market activity — brought together in one place.</p>
         <form className="search" action="/search" method="get"><span>⌕</span><input name="q" aria-label="Search domains" placeholder="Search a domain, TLD or keyword" /><kbd>↵</kbd></form>
       </section>
 
@@ -182,9 +158,9 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section" id="auctions">
-        <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Live auctions</h2></div><span className="muted">{auctions.length ? auctions.length + " active" : "Waiting for market data"}</span></div>
-        <LiveAuctions />
+      <section className="section" id="market">
+        <div className="section-heading"><div><span className="eyebrow">MARKET</span><h2>Tokenized market</h2></div><span className="muted">Doma</span></div>
+        <TokenizedMarket />
       </section>
 
       <section className="section pulse-layout" id="activity">
