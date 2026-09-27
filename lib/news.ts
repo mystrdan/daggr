@@ -6,27 +6,21 @@ export type DomainNewsItem = {
 };
 
 const SOURCES = [
-  { name: "Domain Name Wire", site: "https://domainnamewire.com/", feed: "https://domainnamewire.com/feed/" },
-  { name: "Domain Incite", site: "https://domainincite.com/", feed: "https://domainincite.com/feed/" },
-  { name: "The Domains", site: "https://www.thedomains.com/", feed: "https://www.thedomains.com/feed/" },
-  { name: "DomainGang", site: "https://domaingang.com/", feed: "https://domaingang.com/feed/" },
-  { name: "DNJournal", site: "https://www.dnjournal.com/", feed: "https://www.dnjournal.com/rss.xml" },
+  { name: "Doma Blog", site: "https://blog.doma.xyz/", feed: "https://blog.doma.xyz/feed/" },
+  { name: "D3 Blog", site: "https://blog.d3.com/", feed: "https://blog.d3.com/feed/" },
+  { name: "ENS Blog", site: "https://ens.domains/blog", feed: "https://ens.domains/blog/rss.xml" },
+  { name: "Solana", site: "https://solana.com/podcasts/the-index", feed: "https://solana.com/podcasts/the-index/rss.xml" },
+  { name: "Blockhead", site: "https://www.blockhead.co/", feed: "https://www.blockhead.co/feed/" },
 ] as const;
 
+const TOKENIZED_TERMS = /tokeniz|tokenized|onchain|on-chain|domainfi|doma|domain asset|domain token|web3 name|ensv2|naming/i;
+
 function clean(value: string) {
-  return value
-    .replace(/<!\[CDATA\[/g, "")
-    .replace(/\]\]>/g, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#(d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/<!\[CDATA\[/g, "").replace(/\]\]>/g, "")
+    .replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&nbsp;/g, " ")
+    .replace(/&#x27;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/\s+/g, " ").trim();
 }
 
 function decodeUrl(value: string, base: string) {
@@ -40,24 +34,24 @@ function firstTag(block: string, tag: string) {
 
 function extractRss(xml: string, source: typeof SOURCES[number]): DomainNewsItem | null {
   const blocks = xml.match(/<item[\\s\\S]*?<\\/item>/gi) ?? xml.match(/<entry[\\s\\S]*?<\\/entry>/gi) ?? [];
-  for (const block of blocks.slice(0, 10)) {
+  for (const block of blocks.slice(0, 20)) {
     const title = firstTag(block, "title");
     const linkTag = block.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i);
     const link = linkTag?.[1] ?? firstTag(block, "link");
     const url = decodeUrl(link, source.site);
     const published = firstTag(block, "pubDate") || firstTag(block, "published") || firstTag(block, "updated") || null;
-    if (title.length >= 12 && url) return { title, url, source: source.name, publishedAt: published };
+    if (title.length >= 12 && url && TOKENIZED_TERMS.test(title)) return { title, url, source: source.name, publishedAt: published };
   }
   return null;
 }
 
 function extractHtml(html: string, source: typeof SOURCES[number]): DomainNewsItem | null {
-  const heading = /<h[1-4][^>]*>\s*<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[1-4]>/gi;
+  const heading = /<h[1-4][^>]*>\s*<a[^>]+href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>\s*<\\/h[1-4]>/gi;
   let match: RegExpExecArray | null;
   while ((match = heading.exec(html))) {
     const title = clean(match[2]);
     const url = decodeUrl(match[1], source.site);
-    if (title.length >= 20 && title.length <= 220 && url && !/^(menu|home|advertise|contact|privacy|about|search|next|previous)$/i.test(title)) {
+    if (title.length >= 20 && title.length <= 220 && url && TOKENIZED_TERMS.test(title)) {
       return { title, url, source: source.name, publishedAt: null };
     }
   }
@@ -67,15 +61,17 @@ function extractHtml(html: string, source: typeof SOURCES[number]): DomainNewsIt
 async function fetchSource(source: typeof SOURCES[number]) {
   try {
     const response = await fetch(source.feed, {
-      headers: { "User-Agent": "Daggr/1.0 domain market explorer", Accept: "application/rss+xml, application/atom+xml, text/xml, text/html;q=0.8" },
+      headers: { "User-Agent": "Daggr/1.0 tokenized domain market explorer", Accept: "application/rss+xml, application/atom+xml, text/xml, text/html;q=0.8" },
       next: { revalidate: 600 },
     });
     if (!response.ok) throw new Error(String(response.status));
-    const body = await response.text();
-    return extractRss(body, source) ?? extractHtml(body, source);
+    return extractRss(await response.text(), source) ?? null;
   } catch {
     try {
-      const response = await fetch(source.site, { headers: { "User-Agent": "Daggr/1.0 domain market explorer" }, next: { revalidate: 600 } });
+      const response = await fetch(source.site, {
+        headers: { "User-Agent": "Daggr/1.0 tokenized domain market explorer" },
+        next: { revalidate: 600 },
+      });
       if (!response.ok) return null;
       return extractHtml(await response.text(), source);
     } catch {
