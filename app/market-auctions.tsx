@@ -17,7 +17,7 @@ export default function MarketAuctions() {
 
   useEffect(()=>{
     let live=true; setLoading(true);
-    fetch(`/api/market/auctions?page=${page}&limit=25&sort=${sort}`,{cache:"no-store"})
+    fetch(`/api/auctions?page=${page}&limit=25&sort=${sort}`,{cache:"no-store"})
       .then(async r=>{const p=await r.json(); if(!r.ok||!p.ok) throw new Error(p.error||"Market feed unavailable"); if(live)setData(p);})
       .catch(e=>live&&setData({ok:false,listings:[],total:0,totalPages:1,page,limit:25,error:e instanceof Error?e.message:"Market feed unavailable"}))
       .finally(()=>live&&setLoading(false));
