@@ -1,11 +1,1 @@
-import type { Metadata } from "next";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "Daggr — Domain Market Explorer",
-  description: "Discover what is happening in the domain market.",
-};
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
-}
+import "./globals.css";export const metadata={title:"daggr — Domain Market Explorer",description:"Onchain-style discovery for domain markets"};export default function Layout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
