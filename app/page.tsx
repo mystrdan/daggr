@@ -43,7 +43,7 @@ async function getMarketData(): Promise<MarketData> {
   const [auctionResult,endingResult,activityResult,salesResult,salesCountResult,domainsResult,pulseResult,sourcesResult,freshnessResult]=await Promise.all([
     supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)").eq("status","live").gte("current_price",10).order("updated_at",{ascending:false}).limit(25),
     supabase.from("auctions").select("id,status,current_price,currency,bid_count,ends_at,domains(name,tld),sources(name)").eq("status","live").gte("current_price",10).gte("ends_at",now.toISOString()).lte("ends_at",tomorrow.toISOString()).order("ends_at",{ascending:true}).limit(8),
-    supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions!inner(domains(name,tld),sources(name),currency)").order("occurred_at",{ascending:false}).limit(12),
+    supabase.from("auction_events").select("id,event_type,price,bid_count,occurred_at,auctions!inner(domains(name,tld),sources(name),currency,current_price)").gte("price",10).order("occurred_at",{ascending:false}).limit(12),
     supabase.from("sales").select("id,sale_price,currency,sold_at,source_url,domains(name,tld),sources(name)").order("sold_at",{ascending:false}).limit(8),
     supabase.from("sales").select("id",{count:"exact",head:true}),
     supabase.from("domains").select("id",{count:"exact",head:true}),
